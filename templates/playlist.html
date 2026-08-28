@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}{{ playlist.name }} — Vibe Vault{% endblock %}
+
+{% block content %}
+<div class="playlist-detail-page">
+  
+  <!-- Hero Banner -->
+  <div class="vibe-card p-4 mb-4">
+    <div class="d-flex flex-column flex-md-row align-items-center gap-4">
+      <img src="{{ url_for('serve_cover', filename=playlist.cover_image or 'default_playlist.png') }}" alt="{{ playlist.name }}" style="width: 180px; height: 180px; border-radius: 16px; object-fit: cover; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid var(--border-accent);">
+      
+      <div class="flex-grow-1 text-center text-md-start">
+        <div class="badge bg-primary bg-opacity-25 text-cyan border border-info border-opacity-25 px-3 py-1 mb-2" style="font-size: 11px; letter-spacing: 1px;">
+          PLAYLIST
+        </div>
+        <h1 class="brand-font display-5 mb-2">{{ playlist.name }}</h1>
+        <p class="text-muted mb-3" style="max-width: 600px; font-size: 14.5px;">{{ playlist.description or 'No description provided.' }}</p>
+        
+        <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-start gap-3 text-muted small mb-4">
+          <span><i class="fas fa-user me-1 text-cyan"></i> {{ current_user.full_name or current_user.username }}</span>
+          <span>•</span>
+          <span id="playlist-song-count-badge">0 songs</span>
+          <span>•</span>
+          <span id="playlist-duration-badge">0:00</span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-start gap-2">
+          <button class="btn btn-vibe-primary" onclick="playEntirePlaylist({{ playlist.id }})">
+            <i class="fas fa-play me-1"></i> Play All
+          </button>
+          <button class="btn btn-vibe-secondary" onclick="shuffleEntirePlaylist({{ playlist.id }})">
+            <i class="fas fa-random me-1"></i> Shuffle
+          </button>
+          <button class="btn btn-icon" onclick='openEditPlaylistModal({{ playlist|tojson }})' title="Edit Playlist">
+            <i class="fas fa-pen"></i>
+          </button>
+          <button class="btn btn-icon text-danger" onclick="confirmDeletePlaylist({{ playlist.id }}, '{{ playlist.name }}')" title="Delete Playlist">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Song List Container -->
+  <div id="playlist-songs-container">
+    <!-- Populated via static/js/playlists.js loadSinglePlaylist() -->
+  </div>
+
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    window.loadSinglePlaylist({{ playlist.id }});
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Account Profile & Settings — Vibe Vault{% endblock %}
+
+{% block content %}
+<div class="mx-auto" style="max-width: 900px;">
+  
+  <div class="mb-4">
+    <h2 class="brand-font mb-1"><i class="fas fa-user-circle me-2" style="color: var(--primary-blue);"></i> Profile &amp; Settings</h2>
+    <p class="text-muted mb-0" style="font-size: 14.5px;">Manage your account details, profile picture, and security.</p>
+  </div>
+
+  <div class="row g-4">
+    <!-- Left Column: User Summary Card -->
+    <div class="col-lg-4">
+      <div class="vibe-card text-center p-4">
+        <div class="position-relative d-inline-block mb-3">
+          <img id="profile-avatar-display"
+               src="{{ url_for('serve_profile', filename=user.profile_image or 'default_avatar.png') }}"
+               style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover;
+                      border: 3px solid var(--primary-blue); box-shadow: var(--shadow-glow);">
+        </div>
+        <h4 class="brand-font mb-1" style="color: var(--text-heading);">{{ user.full_name }}</h4>
+        <p class="text-muted mb-3" style="font-size: 13.5px;">@{{ user.username }}</p>
+        
+        <div class="text-start border-top pt-3 mt-3" style="border-color: var(--border-light) !important;">
+          <div class="d-flex justify-content-between mb-2 small">
+            <span class="text-muted">Email:</span>
+            <span style="color: var(--text-main); font-weight: 500;">{{ user.email }}</span>
+          </div>
+          <div class="d-flex justify-content-between mb-3 small">
+            <span class="text-muted">Member Since:</span>
+            <span style="color: var(--text-main); font-weight: 500;">
+              {{ user.created_at.strftime('%d %b %Y') if user.created_at else '2026' }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Listening Activity Summary -->
+        <div class="row g-2 border-top pt-3 mt-2 text-center" style="border-color: var(--border-light) !important;">
+          <div class="col-6">
+            <div class="p-2 rounded-3" style="background: var(--alice-blue);">
+              <div class="fw-bold" style="font-size: 18px; color: var(--primary-blue);">{{ stats.total_songs }}</div>
+              <div class="text-muted" style="font-size: 11px;">Songs</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-2 rounded-3" style="background: var(--alice-blue);">
+              <div class="fw-bold" style="font-size: 18px; color: var(--primary-indigo);">{{ stats.total_playlists }}</div>
+              <div class="text-muted" style="font-size: 11px;">Playlists</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-2 rounded-3" style="background: #fff5f5;">
+              <div class="fw-bold text-danger" style="font-size: 18px;">{{ stats.total_favorites }}</div>
+              <div class="text-muted" style="font-size: 11px;">Favorites</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-2 rounded-3" style="background: #f0fdf4;">
+              <div class="fw-bold text-success" style="font-size: 18px;">{{ stats.total_plays }}</div>
+              <div class="text-muted" style="font-size: 11px;">Total Plays</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Settings Forms -->
+    <div class="col-lg-8">
+      
+      <!-- Card 1: Edit Profile Information -->
+      <div class="vibe-card p-4 mb-4">
+        <h4 class="brand-font mb-3">
+          <i class="fas fa-id-badge me-2" style="color: var(--primary-blue);"></i> Edit Profile Information
+        </h4>
+        <form id="editProfileForm" onsubmit="handleProfileUpdate(event)" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label class="form-label">Full Name *</label>
+            <input type="text" name="full_name" class="form-control" value="{{ user.full_name }}" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Username *</label>
+            <input type="text" name="username" class="form-control" value="{{ user.username }}" required>
+            <div class="form-text text-muted" style="font-size: 11.5px;">Letters, numbers, and underscores only. Min 3 characters.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Email Address</label>
+            <input type="email" class="form-control" value="{{ user.email }}" readonly
+                   style="background: var(--alice-blue) !important; cursor: not-allowed; color: var(--text-muted);">
+            <div class="form-text text-muted" style="font-size: 11px;">Email address cannot be changed.</div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label">Change Avatar Image</label>
+            <input type="file" name="profile_image" class="form-control" accept="image/*" onchange="previewAvatar(this)">
+          </div>
+
+          <button type="submit" class="btn-vibe-primary">
+            <i class="fas fa-save me-1"></i> Save Profile
+          </button>
+        </form>
+      </div>
+
+      <!-- Card 2: Security / Change Password -->
+      <div class="vibe-card p-4">
+        <h4 class="brand-font mb-3">
+          <i class="fas fa-shield-alt me-2" style="color: var(--primary-blue);"></i> Change Password
+        </h4>
+        <form id="changePasswordForm" onsubmit="handlePasswordChange(event)">
+          
+          <div class="mb-3">
+            <label class="form-label">Current Password *</label>
+            <input type="password" name="current_password" class="form-control" placeholder="Enter current password" required>
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label">New Password *</label>
+              <input type="password" id="newPasswordInput" name="new_password" class="form-control" placeholder="Min 8 characters" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Confirm New Password *</label>
+              <input type="password" id="confirmNewPasswordInput" name="confirm_new_password" class="form-control" placeholder="Repeat new password" required>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-vibe-secondary">
+            <i class="fas fa-key me-1"></i> Update Password
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('profile-avatar-display').src = e.target.result;
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  function handleProfileUpdate(e) {
+    e.preventDefault();
+    const form = document.getElementById('editProfileForm');
+    const formData = new FormData(form);
+
+    fetch('/api/profile', {
+      method: 'POST',
+      body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        window.showToast(data.message, 'success');
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        window.showToast(data.message, 'danger');
+      }
+    })
+    .catch(() => window.showToast('Network error. Please try again.', 'danger'));
+  }
+
+  function handlePasswordChange(e) {
+    e.preventDefault();
+    const p1 = document.getElementById('newPasswordInput').value;
+    const p2 = document.getElementById('confirmNewPasswordInput').value;
+
+    if (p1.length < 8) {
+      window.showToast('New password must be at least 8 characters long.', 'warning');
+      return;
+    }
+    if (p1 !== p2) {
+      window.showToast('New passwords do not match.', 'danger');
+      return;
+    }
+
+    const form = document.getElementById('changePasswordForm');
+    const formData = new FormData(form);
+
+    fetch('/api/profile/password', {
+      method: 'POST',
+      body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        window.showToast(data.message, 'success');
+        form.reset();
+      } else {
+        window.showToast(data.message, 'danger');
+      }
+    })
+    .catch(() => window.showToast('Network error. Please try again.', 'danger'));
+  }
+</script>
+{% endblock %}

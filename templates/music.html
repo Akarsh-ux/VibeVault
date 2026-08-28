@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}My Music — Vibe Vault{% endblock %}
+
+{% block content %}
+<div class="music-library-page">
+  
+  <!-- Header with Page Title & Action Controls -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+      <h2 class="brand-font mb-1"><i class="fas fa-music text-cyan me-2"></i> My Music Library</h2>
+      <p class="text-muted mb-0" style="font-size: 14.5px;">All your personal uploaded tracks, organized and ready to play.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-vibe-secondary" onclick="playAllFilteredSongs()">
+        <i class="fas fa-play-circle me-1"></i> Play All
+      </button>
+      <a href="{{ url_for('songs.upload_page') }}" class="btn btn-vibe-primary">
+        <i class="fas fa-cloud-upload-alt me-1"></i> Upload Music
+      </a>
+    </div>
+  </div>
+
+  <!-- Search, Filter & Sort Controls Bar -->
+  <div class="vibe-card p-3 mb-4">
+    <div class="row g-3 align-items-center">
+      <!-- Search Input -->
+      <div class="col-md-5">
+        <div class="position-relative">
+          <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+          <input type="text" id="song-search-filter" class="form-control ps-5" placeholder="Filter by title, artist, album, genre..." oninput="window.loadSongs()">
+        </div>
+      </div>
+
+      <!-- Genre Filter -->
+      <div class="col-6 col-md-3">
+        <select id="genre-filter" class="form-select" onchange="window.loadSongs()">
+          <option value="all">All Genres</option>
+          {% for g in genres %}
+            <option value="{{ g.genre }}">{{ g.genre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Sort Filter -->
+      <div class="col-6 col-md-4">
+        <select id="sort-filter" class="form-select" onchange="window.loadSongs()">
+          <option value="recent">Sort by: Recently Added</option>
+          <option value="title">Sort by: Title (A-Z)</option>
+          <option value="artist">Sort by: Artist (A-Z)</option>
+          <option value="plays">Sort by: Most Played</option>
+          <option value="duration">Sort by: Duration</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Songs Table / Grid Container -->
+  <div id="songs-container">
+    <!-- Rendered via static/js/songs.js loadSongs() -->
+  </div>
+
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    window.loadSongs();
+  });
+</script>
+{% endblock %}

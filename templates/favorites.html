@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Favorites — Vibe Vault{% endblock %}
+
+{% block content %}
+<div class="favorites-page">
+  
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+      <h2 class="brand-font mb-1"><i class="fas fa-heart text-danger me-2"></i> Favorite Songs</h2>
+      <p class="text-muted mb-0" style="font-size: 14.5px;">Your handpicked soundtrack of all-time favorite tracks.</p>
+    </div>
+    <button class="btn btn-vibe-primary" onclick="playAllFavorites()">
+      <i class="fas fa-play me-1"></i> Play Favorites
+    </button>
+  </div>
+
+  <div id="favorites-container">
+    <div class="text-center py-5 text-muted">
+      <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+      <p>Loading your favorites...</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let favoriteSongsList = [];
+
+  function loadFavorites() {
+    const container = document.getElementById('favorites-container');
+    fetch('/api/favorites')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success || !container) return;
+        favoriteSongsList = data.songs;
+
+        if (data.songs.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon text-danger">❤️</div>
+              <h3 class="empty-state-title">No favorites yet</h3>
+              <p class="empty-state-text">Click the heart icon on any song while listening or browsing to save it here for quick access.</p>
+              <a href="/music" class="btn btn-vibe-secondary"><i class="fas fa-music me-2"></i> Browse Music</a>
+            </div>
+          `;
+          return;
+        }
+
+        let html = `
+          <div class="song-table-container">
+            <table class="song-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">#</th>
+                  <th>Title & Artist</th>
+                  <th>Album</th>
+                  <th>Genre</th>
+                  <th style="width: 80px;"><i class="far fa-clock"></i></th>
+                  <th style="width: 120px; text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        data.songs.forEach((song, idx) => {
+          const isCurrent = window.VibePlayer && window.VibePlayer.getCurrentSong()?.id === song.id;
+          const songJson = JSON.stringify(song).replace(/"/g, '&quot;');
+          const queueJson = JSON.stringify(data.songs).replace(/"/g, '&quot;');
+
+          html += `
+            <tr class="song-row ${isCurrent ? 'active-track' : ''}" data-song-id="${song.id}" data-index="${idx + 1}">
+              <td class="song-index-col" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})' style="cursor: pointer;">
+                ${isCurrent && window.VibePlayer.isPlaying ? `
+                  <div class="equalizer"><div class="equalizer-bar"></div><div class="equalizer-bar"></div><div class="equalizer-bar"></div></div>
+                ` : (idx + 1)}
+              </td>
+              <td>
+                <div class="d-flex align-items-center">
+                  <img src="/uploads/covers/${song.cover_image || 'default_cover.png'}" class="song-thumb" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
+                  <div style="min-width: 0;">
+                    <div class="song-title-cell fw-semibold text-truncate text-black" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
+                      ${song.title}
+                    </div>
+                    <div class="text-muted text-truncate" style="font-size: 12.5px;">${song.artist || 'Unknown Artist'}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="text-muted text-truncate" style="max-width: 140px;">${song.album || 'Single'}</td>
+              <td><span class="badge-genre">${song.genre || 'Various'}</span></td>
+              <td class="text-muted" style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">${formatDuration(song.duration)}</td>
+              <td style="text-align: right;">
+                <button class="btn-favorite active" onclick="removeFavoriteFromPage(${song.id})" title="Remove Favorite">
+                  <i class="fas fa-heart text-danger"></i>
+                </button>
+                <button class="btn btn-sm btn-icon" onclick="window.openAddToPlaylistModal(${song.id}, '${song.title.replace(/'/g, "\\'")}')" title="Add to Playlist">
+                  <i class="fas fa-list-ul"></i>
+                </button>
+              </td>
+            </tr>
+          `;
+        });
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+      });
+  }
+
+  function removeFavoriteFromPage(songId) {
+    fetch(`/api/favorites/${songId}`, { method: 'DELETE' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          window.showToast('Removed from favorites.', 'info');
+          loadFavorites();
+        }
+      });
+  }
+
+  function playAllFavorites() {
+    if (favoriteSongsList.length > 0 && window.VibePlayer) {
+      window.VibePlayer.playTrack(favoriteSongsList[0], favoriteSongsList, 0);
+    } else {
+      window.showToast('No favorites to play.', 'warning');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadFavorites();
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Music — Vibe Vault{% endblock %}
+
+{% block content %}
+<div class="upload-page-container mx-auto" style="max-width: 800px;">
+  
+  <div class="mb-4">
+    <h2 class="brand-font mb-1"><i class="fas fa-cloud-upload-alt text-cyan me-2"></i> Upload Music</h2>
+    <p class="text-muted mb-0" style="font-size: 14.5px;">Add your personal audio files and give them custom metadata and artwork.</p>
+  </div>
+
+  <div class="vibe-card p-4">
+    <form method="POST" action="{{ url_for('songs.upload_page') }}" enctype="multipart/form-data" id="uploadMusicForm" onsubmit="handleUploadSubmit(this)">
+      
+      <!-- Audio File Dropzone -->
+      <div class="mb-4">
+        <label class="form-label">Audio File (MP3, WAV, OGG, M4A) *</label>
+        <div class="dropzone" onclick="document.getElementById('audio_file_input').click()">
+          <i class="fas fa-file-audio dropzone-icon"></i>
+          <h5 class="brand-font mb-1" id="selected_audio_name">Click to select or drop audio file here</h5>
+          <p class="text-muted mb-0" style="font-size: 13px;">Supports high quality MP3, WAV, OGG, M4A (Max 60MB)</p>
+          <input type="file" id="audio_file_input" name="audio_file" accept=".mp3,.wav,.ogg,.m4a,audio/*" required style="display: none;">
+        </div>
+      </div>
+
+      <!-- Custom Song Title -->
+      <div class="mb-3">
+        <label class="form-label" for="song_title_input">Custom Song Title *</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent border-secondary text-muted"><i class="fas fa-heading"></i></span>
+          <input type="text" id="song_title_input" name="title" class="form-control" placeholder="e.g. Midnight Cyber Drive" required>
+        </div>
+        <div class="form-text text-muted" style="font-size: 12px;">You can set any custom display title, regardless of the original filename.</div>
+      </div>
+
+      <!-- Artist & Album -->
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <label class="form-label">Artist Name</label>
+          <div class="input-group">
+            <span class="input-group-text bg-transparent border-secondary text-muted"><i class="fas fa-user"></i></span>
+            <input type="text" name="artist" class="form-control" placeholder="e.g. Synthwave Orchestra">
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Album / Project</label>
+          <div class="input-group">
+            <span class="input-group-text bg-transparent border-secondary text-muted"><i class="fas fa-compact-disc"></i></span>
+            <input type="text" name="album" class="form-control" placeholder="e.g. Neon Horizon EP">
+          </div>
+        </div>
+      </div>
+
+      <!-- Genre & Hidden Detected Duration -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-6">
+          <label class="form-label">Genre</label>
+          <div class="input-group">
+            <span class="input-group-text bg-transparent border-secondary text-muted"><i class="fas fa-tag"></i></span>
+            <input type="text" name="genre" class="form-control" placeholder="e.g. Electronic, Lo-Fi, Rock, Jazz">
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Detected Duration (Seconds)</label>
+          <input type="number" id="detected_duration" name="duration" class="form-control" placeholder="Auto-calculated from audio" readonly style="background: rgba(255,255,255,0.03) !important;">
+        </div>
+      </div>
+
+      <!-- Cover Image Artwork -->
+      <div class="mb-4">
+        <label class="form-label">Custom Cover Artwork (Optional)</label>
+        <div class="d-flex align-items-center gap-4">
+          <img id="cover_preview_img" src="{{ url_for('static', filename='images/default_cover.png') }}" style="width: 80px; height: 80px; border-radius: 12px; object-fit: cover; border: 1px solid var(--border-accent);">
+          <div class="flex-grow-1">
+            <input type="file" id="cover_image_input" name="cover_image" class="form-control" accept="image/png,image/jpeg,image/webp">
+            <div class="form-text text-muted" style="font-size: 11.5px;">Recommended: 500x500 square JPG, PNG, or WEBP.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Submit Button -->
+      <div class="d-flex justify-content-end gap-3 pt-3 border-top border-secondary border-opacity-10">
+        <a href="{{ url_for('songs.my_music') }}" class="btn btn-vibe-secondary">Cancel</a>
+        <button type="submit" id="uploadSubmitBtn" class="btn btn-vibe-primary px-4">
+          <i class="fas fa-cloud-upload-alt me-2"></i> <span id="uploadBtnText">Upload to Vault</span>
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+
+<script>
+  function handleUploadSubmit(form) {
+    const btn = document.getElementById('uploadSubmitBtn');
+    const text = document.getElementById('uploadBtnText');
+    if (btn && text) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Uploading audio...';
+    }
+  }
+</script>
+{% endblock %}

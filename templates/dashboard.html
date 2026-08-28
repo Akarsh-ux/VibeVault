@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Vibe Vault{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+  
+  <!-- Welcome Hero Banner -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+      <h2 class="brand-font mb-1">
+        Welcome back, <span style="background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">{{ current_user.full_name or current_user.username }}</span> 👋
+      </h2>
+      <p class="text-muted mb-0" style="font-size: 14.5px;">Ready to vibe? Here is what's happening in your music vault today.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('songs.upload_page') }}" class="btn btn-vibe-primary">
+        <i class="fas fa-cloud-upload-alt me-1"></i> Upload Song
+      </a>
+      <button class="btn btn-vibe-secondary" onclick="openCreatePlaylistModal()">
+        <i class="fas fa-plus me-1"></i> New Playlist
+      </button>
+    </div>
+  </div>
+
+  <!-- Dynamic Statistics Row -->
+  <div class="row g-3 mb-5">
+    <div class="col-6 col-lg-3">
+      <div class="stat-card">
+        <div class="stat-icon-wrapper stat-icon-songs">
+          <i class="fas fa-music"></i>
+        </div>
+        <div>
+          <h3 class="stat-value">{{ stats.total_songs }}</h3>
+          <p class="stat-label">Total Songs</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+      <div class="stat-card">
+        <div class="stat-icon-wrapper stat-icon-playlists">
+          <i class="fas fa-list"></i>
+        </div>
+        <div>
+          <h3 class="stat-value">{{ stats.total_playlists }}</h3>
+          <p class="stat-label">Playlists</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+      <div class="stat-card">
+        <div class="stat-icon-wrapper stat-icon-favorites">
+          <i class="fas fa-heart"></i>
+        </div>
+        <div>
+          <h3 class="stat-value">{{ stats.total_favorites }}</h3>
+          <p class="stat-label">Favorites</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+      <div class="stat-card">
+        <div class="stat-icon-wrapper stat-icon-plays">
+          <i class="fas fa-headphones"></i>
+        </div>
+        <div>
+          <h3 class="stat-value">{{ stats.total_plays }}</h3>
+          <p class="stat-label">Total Plays</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 1: Recently Played -->
+  <div class="mb-5">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h4 class="brand-font mb-0"><i class="fas fa-history text-cyan me-2"></i> Recently Played</h4>
+      <a href="{{ url_for('recently_played.recently_played_page') }}" class="text-muted text-decoration-none small">
+        View All <i class="fas fa-chevron-right ms-1"></i>
+      </a>
+    </div>
+
+    {% if recently_played and recently_played|length > 0 %}
+      <div class="music-grid">
+        {% for song in recently_played %}
+          <div class="song-card">
+            <div class="song-cover-wrapper">
+              <img src="{{ url_for('serve_cover', filename=song.cover_image or 'default_cover.png') }}" class="song-cover-img" alt="{{ song.title }}">
+              <div class="song-play-overlay">
+                <button class="play-hover-btn" onclick='window.VibePlayer.playTrack({{ song|tojson }})' title="Play Now">
+                  <i class="fas fa-play"></i>
+                </button>
+              </div>
+            </div>
+            <div class="song-info-title text-black">{{ song.title }}</div>
+            <div class="song-info-artist">{{ song.artist or 'Unknown Artist' }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="vibe-card text-center py-4">
+        <p class="text-muted mb-2">No recently played tracks yet.</p>
+        <a href="{{ url_for('songs.my_music') }}" class="btn btn-sm btn-vibe-secondary">Explore Library</a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Section 2: My Playlists -->
+  <div class="mb-5">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h4 class="brand-font mb-0"><i class="fas fa-compact-disc text-cyan me-2"></i> My Playlists</h4>
+      <a href="{{ url_for('playlists.playlists_page') }}" class="text-muted text-decoration-none small">
+        View All <i class="fas fa-chevron-right ms-1"></i>
+      </a>
+    </div>
+
+    {% if playlists and playlists|length > 0 %}
+      <div class="music-grid">
+        {% for pl in playlists %}
+          <div class="song-card">
+            <a href="{{ url_for('playlists.playlist_detail_page', playlist_id=pl.id) }}">
+              <div class="song-cover-wrapper">
+                <img src="{{ url_for('serve_cover', filename=pl.cover_image or 'default_playlist.png') }}" class="song-cover-img" alt="{{ pl.name }}">
+                <div class="song-play-overlay">
+                  <button class="play-hover-btn" onclick="event.preventDefault(); playEntirePlaylist({{ pl.id }});" title="Play Playlist">
+                    <i class="fas fa-play"></i>
+                  </button>
+                </div>
+              </div>
+            </a>
+            <a href="{{ url_for('playlists.playlist_detail_page', playlist_id=pl.id) }}" class="song-info-title text-black d-block">{{ pl.name }}</a>
+            <div class="song-info-artist">{{ pl.song_count }} songs</div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="vibe-card text-center py-4">
+        <p class="text-muted mb-2">No playlists created yet.</p>
+        <button class="btn btn-sm btn-vibe-primary" onclick="openCreatePlaylistModal()"><i class="fas fa-plus me-1"></i> Create Playlist</button>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Section 3: Recently Added Songs -->
+  <div class="row g-4 mb-5">
+    <div class="col-lg-6">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h4 class="brand-font mb-0"><i class="fas fa-clock text-cyan me-2"></i> Recently Added</h4>
+        <a href="{{ url_for('songs.my_music') }}" class="text-muted text-decoration-none small">
+          All Songs <i class="fas fa-chevron-right ms-1"></i>
+        </a>
+      </div>
+
+      <div class="vibe-card p-2">
+        {% if recently_added and recently_added|length > 0 %}
+          <div class="list-group list-group-flush bg-transparent">
+            {% for song in recently_added %}
+              <div class="list-group-item bg-transparent border-secondary border-opacity-25 text-black d-flex align-items-center justify-content-between py-2 px-3">
+                <div class="d-flex align-items-center gap-3" style="min-width: 0;">
+                  <img src="{{ url_for('serve_cover', filename=song.cover_image or 'default_cover.png') }}" style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover; cursor: pointer;" onclick='window.VibePlayer.playTrack({{ song|tojson }})'>
+                  <div style="min-width: 0;">
+                    <div class="fw-semibold text-truncate text-black" style="cursor: pointer;" onclick='window.VibePlayer.playTrack({{ song|tojson }})'>{{ song.title }}</div>
+                    <div class="text-muted text-truncate" style="font-size: 12px;">{{ song.artist or 'Unknown Artist' }}</div>
+                  </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <button class="btn-favorite btn-fav-song-{{ song.id }}" onclick="window.toggleFavorite({{ song.id }}, this)">
+                    <i class="{{ 'fas fa-heart text-danger' if song.is_favorite else 'far fa-heart' }}"></i>
+                  </button>
+                  <button class="btn btn-sm btn-icon" onclick='window.VibePlayer.playTrack({{ song|tojson }})'>
+                    <i class="fas fa-play" style="font-size: 11px;"></i>
+                  </button>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center py-4 text-muted">
+            <p class="mb-2">Your library has no tracks yet.</p>
+            <a href="{{ url_for('songs.upload_page') }}" class="btn btn-sm btn-vibe-primary">Upload Your First Song</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Favorites Column -->
+    <div class="col-lg-6">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h4 class="brand-font mb-0"><i class="fas fa-heart text-danger me-2"></i> Favorites</h4>
+        <a href="{{ url_for('favorites.favorites_page') }}" class="text-muted text-decoration-none small">
+          View All <i class="fas fa-chevron-right ms-1"></i>
+        </a>
+      </div>
+
+      <div class="vibe-card p-2">
+        {% if favorites and favorites|length > 0 %}
+          <div class="list-group list-group-flush bg-transparent">
+            {% for song in favorites %}
+              <div class="list-group-item bg-transparent border-secondary border-opacity-25 text-black d-flex align-items-center justify-content-between py-2 px-3">
+                <div class="d-flex align-items-center gap-3" style="min-width: 0;">
+                  <img src="{{ url_for('serve_cover', filename=song.cover_image or 'default_cover.png') }}" style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover; cursor: pointer;" onclick='window.VibePlayer.playTrack({{ song|tojson }})'>
+                  <div style="min-width: 0;">
+                    <div class="fw-semibold text-truncate text-black" style="cursor: pointer;" onclick='window.VibePlayer.playTrack({{ song|tojson }})'>{{ song.title }}</div>
+                    <div class="text-muted text-truncate" style="font-size: 12px;">{{ song.artist or 'Unknown Artist' }}</div>
+                  </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <button class="btn-favorite btn-fav-song-{{ song.id }}" onclick="window.toggleFavorite({{ song.id }}, this)">
+                    <i class="fas fa-heart text-danger"></i>
+                  </button>
+                  <button class="btn btn-sm btn-icon" onclick='window.VibePlayer.playTrack({{ song|tojson }})'>
+                    <i class="fas fa-play" style="font-size: 11px;"></i>
+                  </button>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center py-4 text-muted">
+            <p class="mb-2">No favorite songs yet.</p>
+            <span class="small">Click the ❤️ on any song to save it here.</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
