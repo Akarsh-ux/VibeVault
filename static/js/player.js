@@ -86,7 +86,7 @@ class VibeVaultPlayer {
 
     // Keyboard Spacebar play/pause shortcut (ignore in input fields)
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+      if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
         e.preventDefault();
         this.togglePlay();
       }
@@ -119,12 +119,11 @@ class VibeVaultPlayer {
       this.updateMediaSession(currentSong);
       this.highlightActiveInDOM();
     }).catch(err => {
-      console.warn("Autoplay blocked or playback error:", err);
+      console.warn("Autoplay notice or error:", err);
     });
   }
 
   loadAudioSource(song) {
-    // Use authenticated stream endpoint — audio files are never served publicly
     const audioUrl = `/api/stream/${song.id}`;
     const fullUrl = window.location.origin + audioUrl;
     if (this.audio.src !== fullUrl) {
@@ -183,7 +182,6 @@ class VibeVaultPlayer {
     if (this.isShuffle) {
       this.queue = this.shuffleArray([...this.originalQueue]);
       if (currentSong) {
-        // Move currently playing to first
         this.queue = this.queue.filter(s => s.id !== currentSong.id);
         this.queue.unshift(currentSong);
         this.currentIndex = 0;
@@ -205,7 +203,7 @@ class VibeVaultPlayer {
     if (this.elements.repeatBtn) {
       this.elements.repeatBtn.classList.toggle('active', this.repeatMode !== 'none');
       if (this.repeatMode === 'one') {
-        this.elements.repeatBtn.innerHTML = '<i class="fas fa-redo-alt"></i><span style="font-size: 8px; position: absolute; font-weight: 800;">1</span>';
+        this.elements.repeatBtn.innerHTML = '<i class="fas fa-redo-alt"></i><span style="font-size: 8px; position: absolute; font-weight: 800; top: 3px; right: 3px;">1</span>';
       } else {
         this.elements.repeatBtn.innerHTML = '<i class="fas fa-redo-alt"></i>';
       }
@@ -268,6 +266,9 @@ class VibeVaultPlayer {
     if (this.elements.playIcon) {
       this.elements.playIcon.className = isPlaying ? 'fas fa-pause' : 'fas fa-play';
     }
+    if (this.elements.playerBar) {
+      this.elements.playerBar.classList.toggle('is-playing', isPlaying);
+    }
     this.highlightActiveInDOM();
   }
 
@@ -297,7 +298,8 @@ class VibeVaultPlayer {
     }
 
     if (this.elements.favoriteBtn && this.elements.favoriteIcon) {
-      this.elements.favoriteIcon.className = song.is_favorite ? 'fas fa-heart text-danger' : 'far fa-heart';
+      this.elements.favoriteIcon.className = song.is_favorite ? 'fas fa-heart' : 'far fa-heart';
+      this.elements.favoriteBtn.classList.toggle('active', !!song.is_favorite);
       this.elements.favoriteBtn.dataset.songId = song.id;
     }
 
@@ -325,21 +327,7 @@ class VibeVaultPlayer {
     const song = this.getCurrentSong();
     if (!song) return;
     
-    fetch(`/api/favorites/toggle/${song.id}`, { method: 'POST' })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          song.is_favorite = data.is_favorite;
-          if (this.elements.favoriteIcon) {
-            this.elements.favoriteIcon.className = data.is_favorite ? 'fas fa-heart text-danger' : 'far fa-heart';
-          }
-          // Update any cards/rows on current page
-          document.querySelectorAll(`.btn-fav-song-${song.id}`).forEach(btn => {
-            btn.innerHTML = data.is_favorite ? '<i class="fas fa-heart text-danger"></i>' : '<i class="far fa-heart"></i>';
-          });
-          if (window.showToast) window.showToast(data.message, 'info');
-        }
-      });
+    window.toggleFavorite(song.id, this.elements.favoriteBtn);
   }
 
   /** Logs song playback to server after 5 seconds */
@@ -351,7 +339,7 @@ class VibeVaultPlayer {
       if (this.isPlaying && !this.hasLoggedPlay) {
         fetch('/api/recently-played', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.getCsrfToken() },
           body: JSON.stringify({ song_id: songId })
         }).then(res => res.json()).then(data => {
           this.hasLoggedPlay = true;
@@ -452,5 +440,7 @@ class VibeVaultPlayer {
 
 // Global initialization
 document.addEventListener('DOMContentLoaded', () => {
-  window.VibePlayer = new VibeVaultPlayer();
+  if (!window.VibePlayer) {
+    window.VibePlayer = new VibeVaultPlayer();
+  }
 });

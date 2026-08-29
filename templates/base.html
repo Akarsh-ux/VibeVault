@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token() if is_authenticated else '' }}">
-  <title>{% block title %}Vibe Vault — Your Music. Your Library. Your Vibe.{% endblock %}</title>
+  <title>{% block title %}Vibe Vault — Modern Music Streaming{% endblock %}</title>
   <meta name="description" content="Personal music library and playlist management application. Stream, upload, and organize your music vibe.">
   
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <!-- Font Awesome 6 Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <!-- Custom Dark Studio Stylesheet -->
+  <!-- Custom White & Blue Gradient Theme -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/logo.svg') }}">
 </head>
@@ -24,7 +24,7 @@
     <!-- Sidebar Navigation -->
     <aside class="app-sidebar" id="app-sidebar">
       <div class="sidebar-header">
-        <a href="{{ url_for('main.dashboard') }}" class="d-flex align-items-center gap-2">
+        <a href="{{ url_for('main.dashboard') }}" class="d-flex align-items-center gap-2 text-decoration-none">
           <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="Vibe Vault" class="sidebar-logo">
         </a>
       </div>
@@ -57,8 +57,8 @@
           <i class="fas fa-cloud-upload-alt"></i>
           <span>Upload Music</span>
         </a>
-        <button class="nav-link-item border-0 bg-transparent text-start w-100" onclick="openCreatePlaylistModal()">
-          <i class="fas fa-plus-circle text-cyan"></i>
+        <button type="button" class="nav-link-item border-0 bg-transparent text-start w-100" onclick="openCreatePlaylistModal()">
+          <i class="fas fa-plus-circle"></i>
           <span>New Playlist</span>
         </button>
 
@@ -73,9 +73,9 @@
         <div class="d-flex align-items-center justify-content-between">
           <a href="{{ url_for('users.profile_page') }}" class="user-profile-pill text-decoration-none">
             <img src="{{ url_for('serve_profile', filename=current_user.profile_image if current_user and current_user.profile_image else 'default_avatar.png') }}" class="avatar-sm" alt="Avatar">
-            <div class="text-truncate" style="max-width: 110px;">
-              <div class="fw-semibold text-black text-truncate" style="font-size: 13px;">{{ current_user.full_name if current_user else 'User' }}</div>
-              <div class="text-muted text-truncate" style="font-size: 11px;">@{{ current_user.username if current_user else 'user' }}</div>
+            <div class="text-truncate" style="max-width: 115px;">
+              <div class="fw-bold text-heading text-truncate" style="font-size: 13.5px;">{{ current_user.full_name if current_user else 'User' }}</div>
+              <div class="text-muted text-truncate" style="font-size: 11.5px;">@{{ current_user.username if current_user else 'user' }}</div>
             </div>
           </a>
           <a href="{{ url_for('auth.logout') }}" class="btn-icon" title="Logout">
@@ -89,8 +89,8 @@
     <div class="app-main">
       <!-- Top Navbar -->
       <header class="top-navbar">
-        <div class="d-flex align-items-center gap-3">
-          <button class="btn btn-icon d-lg-none" id="mobile-sidebar-toggle">
+        <div class="d-flex align-items-center gap-3 flex-grow-1">
+          <button class="btn-icon d-lg-none" id="mobile-sidebar-toggle" title="Toggle Navigation">
             <i class="fas fa-bars"></i>
           </button>
           
@@ -103,7 +103,7 @@
         </div>
 
         <div class="d-flex align-items-center gap-3">
-          <a href="{{ url_for('songs.upload_page') }}" class="btn-vibe-primary d-none d-sm-inline-flex" style="padding: 8px 18px; font-size: 13.5px;">
+          <a href="{{ url_for('songs.upload_page') }}" class="btn-vibe-primary d-none d-sm-inline-flex" style="padding: 9px 20px; font-size: 13.5px;">
             <i class="fas fa-cloud-upload-alt"></i> Upload Song
           </a>
           <a href="{{ url_for('users.profile_page') }}">
@@ -113,13 +113,13 @@
       </header>
 
       <!-- Flash Notification Messages -->
-      <div class="px-4 pt-3">
+      <div class="px-4 pt-3" id="flash-messages-wrapper">
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert"
+              <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show shadow-sm" role="alert"
                    style="border-radius: 12px; border: 1px solid var(--border-light); background: #ffffff; font-size: 14px; color: var(--text-main);">
-                <i class="fas fa-info-circle me-2" style="color: var(--primary-blue);"></i> {{ message }}
+                <i class="fas fa-info-circle me-2 text-primary"></i> {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
               </div>
             {% endfor %}
@@ -194,15 +194,15 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title brand-font">Add to Playlist</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          <h5 class="modal-title brand-font"><i class="fas fa-list-ul text-primary me-2"></i> Add to Playlist</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body">
-          <p class="text-muted mb-3" style="font-size: 13.5px;">Add "<span id="modalSongTitle" class="text-black fw-semibold">Song</span>" to your playlists:</p>
+        <div class="modal-body p-4">
+          <p class="text-muted mb-3" style="font-size: 13.5px;">Add "<span id="modalSongTitle" class="text-heading fw-bold">Song</span>" to your playlists:</p>
           <div id="modalPlaylistList" class="my-2"></div>
         </div>
         <div class="modal-footer justify-content-between">
-          <button class="btn btn-sm btn-outline-info" onclick="openCreatePlaylistModal()">
+          <button class="btn btn-vibe-secondary" onclick="openCreatePlaylistModal()">
             <i class="fas fa-plus me-1"></i> New Playlist
           </button>
           <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Done</button>
@@ -216,18 +216,18 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title brand-font">Create New Playlist</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          <h5 class="modal-title brand-font"><i class="fas fa-plus-circle text-primary me-2"></i> Create New Playlist</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <form id="createPlaylistForm" onsubmit="handleCreatePlaylistSubmit(event)">
-          <div class="modal-body">
+          <div class="modal-body p-4">
             <div class="mb-3">
               <label class="form-label">Playlist Name *</label>
-              <input type="text" name="name" class="form-control" placeholder="e.g. Chill Vibes, Workout 2026" required>
+              <input type="text" name="name" class="form-control" placeholder="e.g. Chill Vibes, Deep Focus" required>
             </div>
             <div class="mb-3">
               <label class="form-label">Description</label>
-              <textarea name="description" class="form-control" rows="2" placeholder="Describe the vibe of this playlist..."></textarea>
+              <textarea name="description" class="form-control" rows="2" placeholder="Describe the mood of this playlist..."></textarea>
             </div>
             <div class="mb-3">
               <label class="form-label">Cover Artwork (Optional)</label>
@@ -235,7 +235,7 @@
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-vibe-secondary" data-bs-dismiss="modal">Cancel</button>
             <button type="submit" class="btn btn-vibe-primary"><i class="fas fa-plus me-1"></i> Create Playlist</button>
           </div>
         </form>
@@ -248,16 +248,16 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title brand-font">Edit Song Details</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          <h5 class="modal-title brand-font"><i class="fas fa-pen text-primary me-2"></i> Edit Song Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <form id="editSongForm" onsubmit="saveSongEdit(event)">
           <input type="hidden" id="editSongId" name="song_id">
-          <div class="modal-body">
+          <div class="modal-body p-4">
             <div class="text-center mb-3">
-              <img id="editSongCoverPreview" src="{{ url_for('static', filename='images/default_cover.png') }}" style="width: 90px; height: 90px; border-radius: 12px; object-fit: cover;" class="mb-2">
+              <img id="editSongCoverPreview" src="{{ url_for('static', filename='images/default_cover.png') }}" style="width: 90px; height: 90px; border-radius: 12px; object-fit: cover; border: 1px solid var(--border-light);" class="mb-2">
               <div>
-                <label class="btn btn-sm btn-outline-secondary" style="font-size: 11.5px;">
+                <label class="btn btn-sm btn-vibe-secondary" style="font-size: 11.5px;">
                   Change Artwork <input type="file" name="cover_image" hidden accept="image/*" onchange="previewEditCover(this)">
                 </label>
               </div>
@@ -282,7 +282,7 @@
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-vibe-secondary" data-bs-dismiss="modal">Cancel</button>
             <button type="submit" class="btn btn-vibe-primary">Save Changes</button>
           </div>
         </form>
@@ -295,12 +295,12 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title brand-font">Edit Playlist</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          <h5 class="modal-title brand-font"><i class="fas fa-pen text-primary me-2"></i> Edit Playlist</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <form id="editPlaylistForm" onsubmit="handleEditPlaylistSubmit(event)">
           <input type="hidden" id="editPlaylistId" name="playlist_id">
-          <div class="modal-body">
+          <div class="modal-body p-4">
             <div class="mb-3">
               <label class="form-label">Playlist Name *</label>
               <input type="text" id="editPlaylistName" name="name" class="form-control" required>
@@ -315,7 +315,7 @@
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-vibe-secondary" data-bs-dismiss="modal">Cancel</button>
             <button type="submit" class="btn btn-vibe-primary">Update Playlist</button>
           </div>
         </form>

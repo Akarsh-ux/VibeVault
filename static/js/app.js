@@ -1,6 +1,6 @@
 /**
- * VIBE VAULT — CORE APPLICATION SCRIPT
- * Manages toast notifications, CSRF protection, global search, and modal workflows.
+ * VIBE VAULT — CORE APPLICATION & PERSISTENT SPA ROUTER
+ * Seamless SPA navigation, persistent audio lifecycle, global search, toasts, and modal workflows.
  */
 
 // CSRF Token helper - reads from meta tag injected by Flask
@@ -9,7 +9,7 @@ window.getCsrfToken = function() {
   return meta ? meta.getAttribute('content') : '';
 };
 
-// HTML escape utility to prevent XSS in innerHTML assignments
+// HTML escape utility
 window.escapeHtml = function(str) {
   if (str === null || str === undefined) return '';
   return String(str)
@@ -19,7 +19,6 @@ window.escapeHtml = function(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 };
-
 
 // Toast Notification Manager
 window.showToast = function(message, type = 'info') {
@@ -35,29 +34,177 @@ window.showToast = function(message, type = 'info') {
   toast.className = 'vibe-toast';
   
   const icons = {
-    success: 'fas fa-check-circle text-success',
-    danger: 'fas fa-exclamation-circle text-danger',
-    warning: 'fas fa-exclamation-triangle text-warning',
-    info: 'fas fa-info-circle text-info'
+    success: 'fas fa-check-circle',
+    danger: 'fas fa-exclamation-circle',
+    warning: 'fas fa-exclamation-triangle',
+    info: 'fas fa-info-circle'
   };
 
   toast.innerHTML = `
     <i class="${icons[type] || icons.info}"></i>
-    <div style="flex-grow: 1; font-size: 13.5px; font-weight: 500;">${message}</div>
-    <button type="button" class="btn-close btn-close-white" style="font-size: 10px;" onclick="this.parentElement.remove()"></button>
+    <div style="flex-grow: 1; font-size: 13.5px; font-weight: 600; color: var(--text-main);">${message}</div>
+    <button type="button" class="btn-close" style="font-size: 10px;" onclick="this.parentElement.remove()"></button>
   `;
 
   container.appendChild(toast);
 
   setTimeout(() => {
-    toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+    toast.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
     toast.style.opacity = '0';
     toast.style.transform = 'translateX(100%)';
-    setTimeout(() => toast.remove(), 400);
-  }, 4000);
+    setTimeout(() => toast.remove(), 350);
+  }, 3500);
 };
 
-// Global Favorite Toggle
+// ---------------------------------------------------------------------------
+// SEAMLESS PERSISTENT SPA ROUTER
+// Intercepts in-app navigation so that audio playback NEVER stops or resets
+// ---------------------------------------------------------------------------
+
+window.navigateTo = function(url, pushState = true) {
+  // Disallow external or auth links
+  if (!url || url.startsWith('http://') || url.startsWith('https://') || url.includes('/logout')) {
+    window.location.href = url;
+    return;
+  }
+
+  const contentContainer = document.querySelector('.content-body');
+  if (!contentContainer) {
+    window.location.href = url;
+    return;
+  }
+
+  contentContainer.classList.add('page-transitioning');
+
+  fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return response.text();
+    })
+    .then(htmlText => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlText, 'text/html');
+
+      // Update Document Title
+      const newTitle = doc.querySelector('title');
+      if (newTitle) {
+        document.title = newTitle.textContent;
+      }
+
+      // Extract new content body
+      const newContent = doc.querySelector('.content-body');
+      if (newContent) {
+        contentContainer.innerHTML = newContent.innerHTML;
+      } else {
+        // Fallback for public or unexpected pages
+        window.location.href = url;
+        return;
+      }
+
+      if (pushState) {
+        window.history.pushState({ path: url }, '', url);
+      }
+
+      // Update active state in sidebar navigation
+      updateSidebarActive(window.location.pathname);
+
+      // Close mobile sidebar if open
+      const sidebar = document.getElementById('app-sidebar');
+      if (sidebar) sidebar.classList.remove('show');
+
+      // Re-initialize page specific scripts and DOM elements
+      initPageLifecycle(window.location.pathname);
+
+      // Restore active track highlight from persistent player
+      if (window.VibePlayer) {
+        window.VibePlayer.highlightActiveInDOM();
+      }
+
+      // Smooth scroll to top of content
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    })
+    .catch(err => {
+      console.warn("SPA navigation error, falling back to standard navigation:", err);
+      window.location.href = url;
+    })
+    .finally(() => {
+      setTimeout(() => {
+        contentContainer.classList.remove('page-transitioning');
+      }, 50);
+    });
+};
+
+function updateSidebarActive(pathname) {
+  document.querySelectorAll('.app-sidebar .nav-link-item').forEach(link => {
+    const href = link.getAttribute('href');
+    if (!href) return;
+    const linkPath = new URL(href, window.location.origin).pathname;
+    
+    const isActive = (linkPath === pathname) ||
+      (pathname.startsWith('/playlist') && linkPath.startsWith('/playlist')) ||
+      (pathname === '/music' && linkPath === '/music');
+
+    link.classList.toggle('active', isActive);
+  });
+}
+
+function initPageLifecycle(pathname) {
+  if (pathname === '/music') {
+    if (typeof window.loadSongs === 'function') window.loadSongs();
+  } else if (pathname === '/playlists') {
+    if (typeof window.loadAllPlaylists === 'function') window.loadAllPlaylists();
+  } else if (pathname.startsWith('/playlist/')) {
+    const parts = pathname.split('/');
+    const playlistId = parts[parts.length - 1];
+    if (playlistId && typeof window.loadSinglePlaylist === 'function') {
+      window.loadSinglePlaylist(playlistId);
+    }
+  } else if (pathname === '/favorites') {
+    if (typeof window.loadFavorites === 'function') window.loadFavorites();
+  } else if (pathname === '/recently-played') {
+    if (typeof window.loadRecentlyPlayed === 'function') window.loadRecentlyPlayed();
+  }
+}
+
+// Intercept PopState for Browser Back/Forward navigation
+window.addEventListener('popstate', (e) => {
+  window.navigateTo(window.location.pathname + window.location.search, false);
+});
+
+// Global Link Click Interceptor for SPA Navigation
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('a');
+  if (!link) return;
+
+  const href = link.getAttribute('href');
+  if (!href) return;
+
+  // Ignore anchors, external links, javascript:, or special target attributes
+  if (href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+  if (link.target === '_blank' || link.hasAttribute('download')) return;
+  if (href.includes('/logout')) return;
+
+  // Verify link is an in-app relative route
+  try {
+    const url = new URL(link.href, window.location.origin);
+    if (url.origin === window.location.origin) {
+      // Check if we are inside the authenticated layout
+      if (document.querySelector('.app-wrapper')) {
+        e.preventDefault();
+        window.navigateTo(url.pathname + url.search);
+      }
+    }
+  } catch (err) {
+    // Standard link fallback
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Global Favorites & Playlist Workflows
+// ---------------------------------------------------------------------------
+
 window.toggleFavorite = function(songId, btn) {
   fetch(`/api/favorites/toggle/${songId}`, {
     method: 'POST',
@@ -66,18 +213,17 @@ window.toggleFavorite = function(songId, btn) {
     .then(res => res.json())
     .then(data => {
       if (data.success) {
-        // Update all favorite buttons for this song on the page
         document.querySelectorAll(`.btn-fav-song-${songId}`).forEach(b => {
-          b.innerHTML = data.is_favorite ? '<i class="fas fa-heart text-danger"></i>' : '<i class="far fa-heart"></i>';
+          b.innerHTML = data.is_favorite ? '<i class="fas fa-heart"></i>' : '<i class="far fa-heart"></i>';
+          b.classList.toggle('active', data.is_favorite);
         });
         
-        // If the player is currently playing this song, update bottom player icon
         if (window.VibePlayer && window.VibePlayer.getCurrentSong() && window.VibePlayer.getCurrentSong().id == songId) {
           const current = window.VibePlayer.getCurrentSong();
           current.is_favorite = data.is_favorite;
           const playerFavIcon = document.getElementById('player-favorite-icon');
           if (playerFavIcon) {
-            playerFavIcon.className = data.is_favorite ? 'fas fa-heart text-danger' : 'far fa-heart';
+            playerFavIcon.className = data.is_favorite ? 'fas fa-heart' : 'far fa-heart';
           }
         }
         
@@ -90,7 +236,6 @@ window.toggleFavorite = function(songId, btn) {
     });
 };
 
-// Add to Playlist Modal Workflow
 window.openAddToPlaylistModal = function(songId, songTitle) {
   let modalEl = document.getElementById('addToPlaylistModal');
   if (!modalEl) return;
@@ -100,13 +245,12 @@ window.openAddToPlaylistModal = function(songId, songTitle) {
   
   const listEl = document.getElementById('modalPlaylistList');
   if (listEl) {
-    listEl.innerHTML = '<div class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Loading your playlists...</div>';
+    listEl.innerHTML = '<div class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Loading playlists...</div>';
   }
   
   const bsModal = new bootstrap.Modal(modalEl);
   bsModal.show();
   
-  // Fetch playlists for this song
   fetch(`/api/user/playlists-for-song/${songId}`)
     .then(res => res.json())
     .then(data => {
@@ -128,16 +272,16 @@ window.openAddToPlaylistModal = function(songId, songTitle) {
       data.playlists.forEach(pl => {
         const isAdded = pl.contains_song === 1;
         html += `
-          <div class="list-group-item bg-transparent border-secondary text-black d-flex align-items-center justify-content-between py-2">
+          <div class="list-group-item bg-transparent border-light d-flex align-items-center justify-content-between py-2">
             <div class="d-flex align-items-center gap-3">
-              <img src="/uploads/covers/${pl.cover_image || 'default_playlist.png'}" style="width: 38px; height: 38px; border-radius: 6px; object-fit: cover;">
+              <img src="/uploads/covers/${pl.cover_image || 'default_playlist.png'}" style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-light);">
               <div>
-                <div class="fw-semibold text-black">${pl.name}</div>
+                <div class="fw-semibold text-heading">${pl.name}</div>
               </div>
             </div>
             <div>
               ${isAdded ? `
-                <button class="btn btn-sm btn-outline-danger" onclick="removeSongFromPlaylistAction(${pl.id}, ${songId}, '${pl.name.replace(/'/g, "\\'")}')">
+                <button class="btn btn-sm btn-vibe-secondary text-primary" onclick="removeSongFromPlaylistAction(${pl.id}, ${songId}, '${pl.name.replace(/'/g, "\\'")}')">
                   <i class="fas fa-check me-1"></i> Added
                 </button>
               ` : `
@@ -185,7 +329,9 @@ window.removeSongFromPlaylistAction = function(playlistId, songId, playlistName)
   });
 };
 
-// Global Live Search Logic
+// ---------------------------------------------------------------------------
+// Global Live Search & Mobile Sidebar
+// ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('global-search-input');
   const searchDropdown = document.getElementById('search-dropdown');
@@ -227,13 +373,13 @@ document.addEventListener('DOMContentLoaded', () => {
               songs.slice(0, 5).forEach(s => {
                 const songJson = JSON.stringify(s).replace(/"/g, '&quot;');
                 html += `
-                  <div class="search-result-item" onclick='window.VibePlayer.playTrack(${songJson})'>
+                  <div class="search-result-item" onclick='window.VibePlayer.playTrack(${songJson}); document.getElementById("search-dropdown").style.display="none";'>
                     <img src="/uploads/covers/${s.cover_image || 'default_cover.png'}" class="search-result-img">
                     <div style="flex-grow: 1; overflow: hidden;">
                       <div class="text-truncate fw-semibold" style="font-size: 13.5px;">${s.title}</div>
                       <div class="text-truncate text-muted" style="font-size: 11.5px;">${s.artist} • ${s.genre}</div>
                     </div>
-                    <i class="fas fa-play text-cyan" style="font-size: 12px;"></i>
+                    <i class="fas fa-play text-primary" style="font-size: 12px;"></i>
                   </div>
                 `;
               });
@@ -244,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
               html += `<div class="search-section-title">Playlists (${playlists.length})</div>`;
               playlists.slice(0, 4).forEach(p => {
                 html += `
-                  <a href="/playlist/${p.id}" class="search-result-item">
+                  <a href="/playlist/${p.id}" class="search-result-item" onclick='document.getElementById("search-dropdown").style.display="none";'>
                     <img src="/uploads/covers/${p.cover_image || 'default_playlist.png'}" class="search-result-img">
                     <div style="flex-grow: 1; overflow: hidden;">
                       <div class="text-truncate fw-semibold" style="font-size: 13.5px;">${p.name}</div>
@@ -262,7 +408,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 250);
     });
 
-    // Close search dropdown on click outside
     document.addEventListener('click', (e) => {
       if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
         searchDropdown.style.display = 'none';
@@ -278,7 +423,6 @@ document.addEventListener('DOMContentLoaded', () => {
       sidebar.classList.toggle('show');
     });
 
-    // Close on outside click
     document.addEventListener('click', (e) => {
       if (window.innerWidth < 992 && !sidebar.contains(e.target) && !sidebarToggleBtn.contains(e.target)) {
         sidebar.classList.remove('show');

@@ -7,7 +7,7 @@
   
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
     <div>
-      <h2 class="brand-font mb-1"><i class="fas fa-heart text-danger me-2"></i> Favorite Songs</h2>
+      <h2 class="brand-font mb-1"><i class="fas fa-heart text-primary me-2"></i> Favorite Songs</h2>
       <p class="text-muted mb-0" style="font-size: 14.5px;">Your handpicked soundtrack of all-time favorite tracks.</p>
     </div>
     <button class="btn btn-vibe-primary" onclick="playAllFavorites()">
@@ -17,7 +17,7 @@
 
   <div id="favorites-container">
     <div class="text-center py-5 text-muted">
-      <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+      <i class="fas fa-spinner fa-spin fa-2x mb-3 text-primary"></i>
       <p>Loading your favorites...</p>
     </div>
   </div>
@@ -38,7 +38,7 @@
         if (data.songs.length === 0) {
           container.innerHTML = `
             <div class="empty-state">
-              <div class="empty-state-icon text-danger">❤️</div>
+              <div class="empty-state-icon"><i class="fas fa-heart"></i></div>
               <h3 class="empty-state-title">No favorites yet</h3>
               <p class="empty-state-text">Click the heart icon on any song while listening or browsing to save it here for quick access.</p>
               <a href="/music" class="btn btn-vibe-secondary"><i class="fas fa-music me-2"></i> Browse Music</a>
@@ -79,7 +79,7 @@
                 <div class="d-flex align-items-center">
                   <img src="/uploads/covers/${song.cover_image || 'default_cover.png'}" class="song-thumb" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
                   <div style="min-width: 0;">
-                    <div class="song-title-cell fw-semibold text-truncate text-black" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
+                    <div class="song-title-cell fw-bold text-truncate text-heading" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
                       ${song.title}
                     </div>
                     <div class="text-muted text-truncate" style="font-size: 12.5px;">${song.artist || 'Unknown Artist'}</div>
@@ -91,7 +91,7 @@
               <td class="text-muted" style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">${formatDuration(song.duration)}</td>
               <td style="text-align: right;">
                 <button class="btn-favorite active" onclick="removeFavoriteFromPage(${song.id})" title="Remove Favorite">
-                  <i class="fas fa-heart text-danger"></i>
+                  <i class="fas fa-heart"></i>
                 </button>
                 <button class="btn btn-sm btn-icon" onclick="window.openAddToPlaylistModal(${song.id}, '${song.title.replace(/'/g, "\\'")}')" title="Add to Playlist">
                   <i class="fas fa-list-ul"></i>
@@ -107,7 +107,10 @@
   }
 
   function removeFavoriteFromPage(songId) {
-    fetch(`/api/favorites/${songId}`, { method: 'DELETE' })
+    fetch(`/api/favorites/${songId}`, {
+      method: 'DELETE',
+      headers: { 'X-CSRF-Token': window.getCsrfToken() }
+    })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -125,8 +128,8 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  if (typeof loadFavorites === 'function') {
     loadFavorites();
-  });
+  }
 </script>
 {% endblock %}

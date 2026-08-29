@@ -1,6 +1,6 @@
 /**
  * VIBE VAULT — PLAYLISTS ENGINE
- * Manages playlist creation, editing, song reordering, and playlist playback.
+ * Manages playlist creation, editing, song reordering, and playlist playback with SPA persistence.
  */
 
 // Load All Playlists (for /playlists page)
@@ -8,7 +8,7 @@ window.loadAllPlaylists = function() {
   const container = document.getElementById('playlists-grid-container');
   if (!container) return;
 
-  container.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin fa-2x mb-3"></i><p>Loading playlists...</p></div>';
+  container.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin fa-2x mb-3 text-primary"></i><p>Loading playlists...</p></div>';
 
   fetch('/api/playlists')
     .then(res => res.json())
@@ -29,9 +29,9 @@ function renderPlaylistsGrid(playlists) {
   if (playlists.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-state-icon">🎧</div>
-        <h3 class="empty-state-title">No playlists yet</h3>
-        <p class="empty-state-text">Create custom playlists to organize your favorite music for any mood or activity.</p>
+        <div class="empty-state-icon"><i class="fas fa-compact-disc"></i></div>
+        <h3 class="empty-state-title">No playlists created yet</h3>
+        <p class="empty-state-text">Create personalized playlists for your moods, genres, or activities.</p>
         <button class="btn btn-vibe-primary" onclick="openCreatePlaylistModal()"><i class="fas fa-plus me-2"></i> Create Playlist</button>
       </div>
     `;
@@ -52,7 +52,7 @@ function renderPlaylistsGrid(playlists) {
             </div>
           </div>
         </a>
-        <a href="/playlist/${pl.id}" class="song-info-title text-black d-block">${pl.name}</a>
+        <a href="/playlist/${pl.id}" class="song-info-title text-heading d-block">${pl.name}</a>
         <div class="song-info-artist">${pl.song_count} songs • ${formatDuration(pl.total_duration)}</div>
       </div>
     `;
@@ -96,10 +96,10 @@ function renderSinglePlaylistSongs(playlist, songs) {
   if (songs.length === 0) {
     container.innerHTML = `
       <div class="empty-state py-5">
-        <div class="empty-state-icon">🎶</div>
-        <h4 class="empty-state-title">This playlist is empty</h4>
-        <p class="empty-state-text">Browse your music library and click "Add to Playlist" on any song to start filling it up.</p>
-        <a href="/music" class="btn btn-vibe-secondary"><i class="fas fa-search me-2"></i> Find Songs</a>
+        <div class="empty-state-icon"><i class="fas fa-headphones"></i></div>
+        <h4 class="empty-state-title">This playlist has no songs yet</h4>
+        <p class="empty-state-text">Browse your music library and click "Add to Playlist" on any track to start building your mix.</p>
+        <a href="/music" class="btn btn-vibe-secondary"><i class="fas fa-search me-2"></i> Browse Music Library</a>
       </div>
     `;
     return;
@@ -136,7 +136,7 @@ function renderSinglePlaylistSongs(playlist, songs) {
           <div class="d-flex align-items-center">
             <img src="/uploads/covers/${song.cover_image || 'default_cover.png'}" class="song-thumb" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
             <div style="min-width: 0;">
-              <div class="song-title-cell fw-semibold text-truncate text-black" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
+              <div class="song-title-cell fw-bold text-truncate text-heading" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
                 ${song.title}
               </div>
               <div class="text-muted text-truncate" style="font-size: 12.5px;">${song.artist || 'Unknown Artist'}</div>
@@ -146,7 +146,6 @@ function renderSinglePlaylistSongs(playlist, songs) {
         <td class="text-muted text-truncate" style="max-width: 140px;">${song.album || 'Single'}</td>
         <td class="text-muted" style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">${formatDuration(song.duration)}</td>
         <td style="text-align: right;">
-          <!-- Move Up / Down buttons -->
           <button class="btn btn-sm btn-icon" onclick="moveSongInPlaylist(${playlist.id}, ${idx}, -1)" ${idx === 0 ? 'disabled style="opacity: 0.3;"' : ''} title="Move Up">
             <i class="fas fa-chevron-up"></i>
           </button>
@@ -154,9 +153,9 @@ function renderSinglePlaylistSongs(playlist, songs) {
             <i class="fas fa-chevron-down"></i>
           </button>
           <button class="btn-favorite btn-fav-song-${song.id} ${song.is_favorite ? 'active' : ''}" onclick="window.toggleFavorite(${song.id}, this)" title="Favorite">
-            <i class="${song.is_favorite ? 'fas fa-heart text-danger' : 'far fa-heart'}"></i>
+            <i class="${song.is_favorite ? 'fas fa-heart' : 'far fa-heart'}"></i>
           </button>
-          <button class="btn btn-sm btn-icon text-danger" onclick="removeSongFromCurrentPlaylist(${playlist.id}, ${song.id})" title="Remove from Playlist">
+          <button class="btn btn-sm btn-icon" onclick="removeSongFromCurrentPlaylist(${playlist.id}, ${song.id})" title="Remove from Playlist">
             <i class="fas fa-times"></i>
           </button>
         </td>
@@ -207,7 +206,7 @@ window.moveSongInPlaylist = function(playlistId, index, direction) {
 
   fetch(`/api/playlists/${playlistId}/reorder`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.getCsrfToken() },
     body: JSON.stringify({ song_ids: newOrderIds })
   })
   .then(res => res.json())
@@ -219,7 +218,10 @@ window.moveSongInPlaylist = function(playlistId, index, direction) {
 };
 
 window.removeSongFromCurrentPlaylist = function(playlistId, songId) {
-  fetch(`/api/playlists/${playlistId}/songs/${songId}`, { method: 'DELETE' })
+  fetch(`/api/playlists/${playlistId}/songs/${songId}`, {
+    method: 'DELETE',
+    headers: { 'X-CSRF-Token': window.getCsrfToken() }
+  })
     .then(res => res.json())
     .then(data => {
       if (data.success) {
@@ -242,6 +244,7 @@ window.handleCreatePlaylistSubmit = function(e) {
 
   fetch('/api/playlists', {
     method: 'POST',
+    headers: { 'X-CSRF-Token': window.getCsrfToken() },
     body: formData
   })
   .then(res => res.json())
@@ -253,7 +256,7 @@ window.handleCreatePlaylistSubmit = function(e) {
       if (window.location.pathname === '/playlists') {
         window.loadAllPlaylists();
       } else {
-        window.location.href = `/playlist/${data.playlist.id}`;
+        window.navigateTo(`/playlist/${data.playlist.id}`);
       }
     } else {
       window.showToast(data.message, 'danger');
@@ -281,13 +284,15 @@ window.handleEditPlaylistSubmit = function(e) {
 
   fetch(`/api/playlists/${playlistId}`, {
     method: 'PUT',
+    headers: { 'X-CSRF-Token': window.getCsrfToken() },
     body: formData
   })
   .then(res => res.json())
   .then(data => {
     if (data.success) {
       window.showToast(data.message, 'success');
-      window.location.reload();
+      bootstrap.Modal.getInstance(document.getElementById('editPlaylistModal'))?.hide();
+      window.loadSinglePlaylist(playlistId);
     } else {
       window.showToast(data.message, 'danger');
     }
@@ -295,13 +300,16 @@ window.handleEditPlaylistSubmit = function(e) {
 };
 
 window.confirmDeletePlaylist = function(playlistId, playlistName) {
-  if (confirm(`Are you sure you want to delete the playlist "${playlistName}"? Songs will remain in your library.`)) {
-    fetch(`/api/playlists/${playlistId}`, { method: 'DELETE' })
+  if (confirm(`Are you sure you want to delete "${playlistName}"? Songs will remain in your library.`)) {
+    fetch(`/api/playlists/${playlistId}`, {
+      method: 'DELETE',
+      headers: { 'X-CSRF-Token': window.getCsrfToken() }
+    })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
           window.showToast(data.message, 'success');
-          window.location.href = '/playlists';
+          window.navigateTo('/playlists');
         }
       });
   }

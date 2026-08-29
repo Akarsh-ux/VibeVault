@@ -13,7 +13,7 @@ window.loadSongs = function() {
   const songContainer = document.getElementById('songs-container');
 
   if (!songContainer) return;
-  songContainer.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin fa-2x mb-3"></i><p>Loading your music...</p></div>';
+  songContainer.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin fa-2x mb-3 text-primary"></i><p>Loading your music...</p></div>';
 
   fetch(`/api/songs?q=${encodeURIComponent(query)}&genre=${encodeURIComponent(genre)}&sort=${encodeURIComponent(sort)}`)
     .then(res => res.json())
@@ -35,9 +35,9 @@ function renderSongList(songs) {
   if (songs.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-state-icon">🎵</div>
+        <div class="empty-state-icon"><i class="fas fa-music"></i></div>
         <h3 class="empty-state-title">Your music library is empty</h3>
-        <p class="empty-state-text">Upload your first song and start building your personal Vibe Vault collection.</p>
+        <p class="empty-state-text">Upload your personal songs to start building your Vibe Vault sanctuary.</p>
         <a href="/upload" class="btn btn-vibe-primary"><i class="fas fa-cloud-upload-alt me-2"></i> Upload Music</a>
       </div>
     `;
@@ -76,10 +76,10 @@ function renderSongList(songs) {
         <td>
           <div class="d-flex align-items-center">
             <div class="position-relative" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
-              <img src="/uploads/covers/${song.cover_image || 'default_cover.png'}" class="song-thumb">
+              <img src="/uploads/covers/${song.cover_image || 'default_cover.png'}" class="song-thumb" alt="${song.title}">
             </div>
             <div style="min-width: 0;">
-              <div class="song-title-cell fw-semibold text-truncate text-black" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
+              <div class="song-title-cell fw-bold text-truncate text-heading" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
                 ${song.title}
               </div>
               <div class="text-muted text-truncate" style="font-size: 12.5px;">${song.artist || 'Unknown Artist'}</div>
@@ -92,15 +92,15 @@ function renderSongList(songs) {
         <td class="text-muted" style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">${formatDuration(song.duration)}</td>
         <td style="text-align: right;">
           <button class="btn-favorite btn-fav-song-${song.id} ${song.is_favorite ? 'active' : ''}" onclick="window.toggleFavorite(${song.id}, this)" title="Favorite">
-            <i class="${song.is_favorite ? 'fas fa-heart text-danger' : 'far fa-heart'}"></i>
+            <i class="${song.is_favorite ? 'fas fa-heart' : 'far fa-heart'}"></i>
           </button>
           <button class="btn btn-sm btn-icon" onclick="window.openAddToPlaylistModal(${song.id}, '${song.title.replace(/'/g, "\\'")}')" title="Add to Playlist">
             <i class="fas fa-list-ul"></i>
           </button>
-          <button class="btn btn-sm btn-icon" onclick='openEditSongModal(${songJson})' title="Edit Song">
+          <button class="btn btn-sm btn-icon" onclick='openEditSongModal(${songJson})' title="Edit Song Details">
             <i class="fas fa-pen"></i>
           </button>
-          <button class="btn btn-sm btn-icon text-danger" onclick='confirmDeleteSong(${song.id}, "${song.title.replace(/"/g, '&quot;')}")' title="Delete Song">
+          <button class="btn btn-sm btn-icon" onclick='confirmDeleteSong(${song.id}, "${song.title.replace(/"/g, '&quot;')}")' title="Delete Song">
             <i class="fas fa-trash-alt"></i>
           </button>
         </td>
@@ -115,6 +115,8 @@ function renderSongList(songs) {
 window.playAllFilteredSongs = function() {
   if (currentSongList.length > 0 && window.VibePlayer) {
     window.VibePlayer.playTrack(currentSongList[0], currentSongList, 0);
+  } else {
+    window.showToast('No songs to play in the current view.', 'warning');
   }
 };
 
@@ -148,13 +150,14 @@ window.saveSongEdit = function(e) {
 
   fetch(`/api/songs/${songId}`, {
     method: 'PUT',
+    headers: { 'X-CSRF-Token': window.getCsrfToken() },
     body: formData
   })
   .then(res => res.json())
   .then(data => {
     if (data.success) {
       window.showToast(data.message, 'success');
-      bootstrap.Modal.getInstance(document.getElementById('editSongModal')).hide();
+      bootstrap.Modal.getInstance(document.getElementById('editSongModal'))?.hide();
       window.loadSongs();
     } else {
       window.showToast(data.message, 'danger');
@@ -164,8 +167,11 @@ window.saveSongEdit = function(e) {
 
 // Delete Song Confirmation
 window.confirmDeleteSong = function(songId, songTitle) {
-  if (confirm(`Are you sure you want to delete "${songTitle}"? This will also remove it from your playlists and history.`)) {
-    fetch(`/api/songs/${songId}`, { method: 'DELETE' })
+  if (confirm(`Are you sure you want to delete "${songTitle}" from your library?`)) {
+    fetch(`/api/songs/${songId}`, {
+      method: 'DELETE',
+      headers: { 'X-CSRF-Token': window.getCsrfToken() }
+    })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -178,7 +184,7 @@ window.confirmDeleteSong = function(songId, songTitle) {
   }
 };
 
-// Audio File Client-side Duration Detection & Drag and Drop
+// Client-side Duration Detection & Drag and Drop for Uploads
 document.addEventListener('DOMContentLoaded', () => {
   const audioInput = document.getElementById('audio_file_input');
   const durationInput = document.getElementById('detected_duration');
@@ -190,14 +196,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (file) {
         if (fileNameDisplay) fileNameDisplay.textContent = `Selected: ${file.name} (${(file.size / (1024*1024)).toFixed(2)} MB)`;
         
-        // Auto-fill title if empty
         const titleField = document.getElementById('song_title_input');
         if (titleField && !titleField.value) {
           const rawName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
           titleField.value = rawName.replace(/[_]/g, ' ').replace(/-/g, ' ').trim();
         }
 
-        // Calculate duration via Audio element
         const reader = new FileReader();
         reader.onload = function(evt) {
           const tempAudio = new Audio();
@@ -213,7 +217,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Cover image preview
   const coverInput = document.getElementById('cover_image_input');
   const coverPreview = document.getElementById('cover_preview_img');
   if (coverInput && coverPreview) {

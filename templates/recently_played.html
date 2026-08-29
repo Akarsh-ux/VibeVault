@@ -7,14 +7,14 @@
 
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
     <div>
-      <h2 class="brand-font mb-1"><i class="fas fa-history text-cyan me-2"></i> Recently Played</h2>
+      <h2 class="brand-font mb-1"><i class="fas fa-history text-primary me-2"></i> Recently Played</h2>
       <p class="text-muted mb-0" style="font-size: 14.5px;">Your personal listening timeline and playback history.</p>
     </div>
     <div class="d-flex gap-2">
       <button class="btn btn-vibe-primary" onclick="playAllRecent()">
         <i class="fas fa-play me-1"></i> Play History
       </button>
-      <button class="btn btn-outline-danger btn-sm px-3" onclick="clearPlaybackHistory()">
+      <button class="btn btn-vibe-secondary btn-sm px-3" onclick="clearPlaybackHistory()">
         <i class="fas fa-trash-alt me-1"></i> Clear History
       </button>
     </div>
@@ -22,7 +22,7 @@
 
   <div id="recently-played-container">
     <div class="text-center py-5 text-muted">
-      <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+      <i class="fas fa-spinner fa-spin fa-2x mb-3 text-primary"></i>
       <p>Loading your listening history...</p>
     </div>
   </div>
@@ -43,7 +43,7 @@
         if (data.songs.length === 0) {
           container.innerHTML = `
             <div class="empty-state">
-              <div class="empty-state-icon">⏳</div>
+              <div class="empty-state-icon"><i class="fas fa-history"></i></div>
               <h3 class="empty-state-title">No listening history yet</h3>
               <p class="empty-state-text">Start listening to your music tracks to automatically build your listening history and play stats.</p>
               <a href="/music" class="btn btn-vibe-secondary"><i class="fas fa-play me-2"></i> Listen to Music</a>
@@ -84,7 +84,7 @@
                 <div class="d-flex align-items-center">
                   <img src="/uploads/covers/${song.cover_image || 'default_cover.png'}" class="song-thumb" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
                   <div style="min-width: 0;">
-                    <div class="song-title-cell fw-semibold text-truncate text-black" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
+                    <div class="song-title-cell fw-bold text-truncate text-heading" style="cursor: pointer;" onclick='window.VibePlayer.playTrack(${songJson}, ${queueJson}, ${idx})'>
                       ${song.title}
                     </div>
                     <div class="text-muted text-truncate" style="font-size: 12.5px;">${song.artist || 'Unknown Artist'}</div>
@@ -96,7 +96,7 @@
               <td class="text-muted" style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">${formatDuration(song.duration)}</td>
               <td style="text-align: right;">
                 <button class="btn-favorite btn-fav-song-${song.id} ${song.is_favorite ? 'active' : ''}" onclick="window.toggleFavorite(${song.id}, this)" title="Favorite">
-                  <i class="${song.is_favorite ? 'fas fa-heart text-danger' : 'far fa-heart'}"></i>
+                  <i class="${song.is_favorite ? 'fas fa-heart' : 'far fa-heart'}"></i>
                 </button>
                 <button class="btn btn-sm btn-icon" onclick="window.openAddToPlaylistModal(${song.id}, '${song.title.replace(/'/g, "\\'")}')" title="Add to Playlist">
                   <i class="fas fa-list-ul"></i>
@@ -138,7 +138,10 @@
 
   function clearPlaybackHistory() {
     if (confirm('Are you sure you want to clear your listening history? (Song files and play counts will not be deleted)')) {
-      fetch('/api/recently-played/clear', { method: 'POST' })
+      fetch('/api/recently-played/clear', {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': window.getCsrfToken() }
+      })
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -149,8 +152,8 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  if (typeof loadRecentlyPlayed === 'function') {
     loadRecentlyPlayed();
-  });
+  }
 </script>
 {% endblock %}
