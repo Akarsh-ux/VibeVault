@@ -27,10 +27,18 @@ wheels/
 venv/
 .venv/
 
-# Environment Variables
+# Environment Variables (NEVER commit .env with real credentials)
 .env
+.env.local
+.env.*.local
 
-# Uploads (except placeholder/readme)
+# SQLite (legacy / testing artefacts)
+*.db
+*.sqlite
+*.sqlite3
+database/*.db
+
+# Uploads (keep directory structure, ignore actual uploaded files)
 uploads/songs/*
 !uploads/songs/.gitkeep
 uploads/covers/*
@@ -47,3 +55,12 @@ uploads/profiles/*
 # OS
 .DS_Store
 Thumbs.db
+
+# Test / coverage artefacts
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Logs
+*.log

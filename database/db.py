@@ -1,243 +1,169 @@
+"""
+Vibe Vault — Database Layer (PostgreSQL / psycopg2)
+
+Connection source priority:
+  1. DATABASE_URL environment variable (Render production, any PaaS)
+  2. Individual DB_HOST / DB_PORT / DB_USER / DB_PASSWORD / DB_NAME env vars
+     assembled into a connection URL (local development convenience)
+
+All queries use %s placeholders, which are native to psycopg2.
+INSERT statements executed with commit=True automatically use RETURNING id
+so callers receive the new row's primary key — transparently replacing
+PyMySQL's cursor.lastrowid behaviour.
+"""
+
 import os
-import sqlite3
-import pymysql
-from pymysql.cursors import DictCursor
+import re
+import psycopg2
+import psycopg2.extras
 from config import Config
 
 # ---------------------------------------------------------------------------
-# Connection Helpers
+# Connection helpers
 # ---------------------------------------------------------------------------
 
-def get_mysql_connection(create_db_if_missing=True):
-    """Attempt to establish a MySQL connection using configured credentials."""
+def _build_dsn() -> str:
+    """
+    Return the PostgreSQL DSN / connection URL to use.
+
+    Priority:
+      1. DATABASE_URL env var (set by Render and most PaaS platforms)
+      2. Construct from individual DB_* env vars (local dev fallback)
+    """
+    url = os.environ.get('DATABASE_URL', '')
+    if url:
+        # Render (and some older Heroku-style platforms) may supply
+        # "postgres://" which psycopg2 requires as "postgresql://"
+        if url.startswith('postgres://'):
+            url = url.replace('postgres://', 'postgresql://', 1)
+        return url
+
+    # Individual env-var fallback (local development)
+    host     = os.environ.get('DB_HOST', 'localhost')
+    port     = os.environ.get('DB_PORT', '5432')
+    user     = os.environ.get('DB_USER', 'postgres')
+    password = os.environ.get('DB_PASSWORD', '')
+    dbname   = os.environ.get('DB_NAME', 'vibe_vault')
+
+    # URL-encode the password in case it contains special characters
+    from urllib.parse import quote_plus
+    encoded_password = quote_plus(password)
+    return f"postgresql://{user}:{encoded_password}@{host}:{port}/{dbname}"
+
+
+def get_pg_connection():
+    """
+    Open and return a new psycopg2 connection using the resolved DSN.
+    Raises RuntimeError if the connection cannot be established.
+    """
+    dsn = _build_dsn()
     try:
-        if create_db_if_missing:
-            conn = pymysql.connect(
-                host=Config.DB_HOST,
-                port=Config.DB_PORT,
-                user=Config.DB_USER,
-                password=Config.DB_PASSWORD,
-                charset='utf8mb4',
-                cursorclass=DictCursor,
-                connect_timeout=3
-            )
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    f"CREATE DATABASE IF NOT EXISTS `{Config.DB_NAME}` "
-                    f"CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-                )
-            conn.select_db(Config.DB_NAME)
-            return conn
-        else:
-            return pymysql.connect(
-                host=Config.DB_HOST,
-                port=Config.DB_PORT,
-                user=Config.DB_USER,
-                password=Config.DB_PASSWORD,
-                database=Config.DB_NAME,
-                charset='utf8mb4',
-                cursorclass=DictCursor,
-                connect_timeout=3
-            )
-    except Exception:
-        return None
-
-
-def get_sqlite_connection():
-    """SQLite connection for explicit dev/test mode (USE_SQLITE=true)."""
-    sqlite_path = os.path.join(Config.BASE_DIR, 'database', 'vibe_vault.db')
-    os.makedirs(os.path.dirname(sqlite_path), exist_ok=True)
-    conn = sqlite3.connect(sqlite_path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
-    return conn
-
-
-def _get_connection():
-    """
-    Get a database connection.
-    - If USE_SQLITE is explicitly true, use SQLite.
-    - Otherwise use MySQL. Raises RuntimeError if MySQL is unavailable.
-    """
-    if Config.USE_SQLITE:
-        return get_sqlite_connection(), False
-
-    conn = get_mysql_connection(create_db_if_missing=False)
-    if conn:
-        return conn, True
-
-    raise RuntimeError(
-        "[VibeVault DB] Cannot connect to MySQL. "
-        "Check your .env credentials or set USE_SQLITE=true for local testing."
-    )
+        conn = psycopg2.connect(dsn, connect_timeout=5)
+        conn.autocommit = False
+        return conn
+    except psycopg2.OperationalError as exc:
+        raise RuntimeError(
+            f"[VibeVault DB] Cannot connect to PostgreSQL.\n"
+            f"Check DATABASE_URL or DB_* environment variables.\n"
+            f"Original error: {exc}"
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
 # Public query API
 # ---------------------------------------------------------------------------
 
-def query_db(query, args=(), one=False, commit=False):
+def query_db(query: str, args=(), one: bool = False, commit: bool = False):
     """
-    Execute a database query with automatic parameter handling.
-    Works across MySQL (PyMySQL) and SQLite (when USE_SQLITE=true).
+    Execute a PostgreSQL query and return results as plain dicts.
 
-    Returns:
-      - If commit=True: lastrowid or affected rowcount
-      - If one=True: single row dict or None
-      - Otherwise: list of row dicts
+    Parameters
+    ----------
+    query  : SQL string with %s placeholders (psycopg2 style)
+    args   : tuple or list of query parameters
+    one    : if True, return a single dict (or None) instead of a list
+    commit : if True, commit the transaction and return the new row's id
+             (for INSERT/UPDATE/DELETE).  INSERT statements automatically
+             receive a `RETURNING id` clause appended so the primary key
+             is returned to the caller.
+
+    Returns
+    -------
+    - commit=True  → int (last inserted id or affected rowcount)
+    - one=True     → dict | None
+    - otherwise    → list[dict]
     """
-    conn, is_mysql = _get_connection()
-
+    conn = get_pg_connection()
     try:
-        if is_mysql:
-            with conn.cursor() as cursor:
-                cursor.execute(query, args)
-                if commit:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if commit:
+                # For INSERT statements, append RETURNING id so we get the
+                # new primary key back (replaces PyMySQL cursor.lastrowid).
+                exec_query = query.rstrip().rstrip(';')
+                normalized = exec_query.upper().lstrip()
+                if normalized.startswith('INSERT'):
+                    exec_query = f"{exec_query} RETURNING id"
+                    cur.execute(exec_query, args)
                     conn.commit()
-                    return cursor.lastrowid or cursor.rowcount
-                result = cursor.fetchall()
+                    row = cur.fetchone()
+                    return row['id'] if row else None
+                else:
+                    cur.execute(exec_query, args)
+                    conn.commit()
+                    return cur.rowcount
+            else:
+                cur.execute(query, args)
+                rows = cur.fetchall()
+                # RealDictRow → plain dict for JSON serialisability
+                result = [dict(r) for r in rows]
                 if one:
                     return result[0] if result else None
                 return result
-        else:
-            # SQLite uses ? placeholders instead of %s
-            sqlite_query = query.replace('%s', '?')
-            cursor = conn.cursor()
-            cursor.execute(sqlite_query, args)
-            if commit:
-                conn.commit()
-                last_id = cursor.lastrowid
-                row_count = cursor.rowcount
-                cursor.close()
-                conn.close()
-                return last_id or row_count
-
-            rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
-
-            dict_rows = [dict(row) for row in rows]
-            if one:
-                return dict_rows[0] if dict_rows else None
-            return dict_rows
+    except Exception:
+        conn.rollback()
+        raise
     finally:
-        if is_mysql and conn:
-            conn.close()
+        conn.close()
 
 
 # ---------------------------------------------------------------------------
-# Schema Initialisation
+# Schema initialisation
 # ---------------------------------------------------------------------------
 
 def init_db():
-    """Initialize the database schema on MySQL or SQLite."""
-    print("[VibeVault DB] Initializing database...")
+    """
+    Create all required PostgreSQL tables (idempotent — safe to call on
+    every startup because the schema uses IF NOT EXISTS).
+    """
+    print("[VibeVault DB] Initializing PostgreSQL database...")
 
-    if Config.USE_SQLITE:
-        _init_sqlite()
-        return 'sqlite'
-
-    mysql_conn = get_mysql_connection(create_db_if_missing=True)
-    if mysql_conn:
-        _init_mysql(mysql_conn)
-        return 'mysql'
-
-    raise RuntimeError(
-        "[VibeVault DB] MySQL not reachable and USE_SQLITE is not set to true. "
-        "Set USE_SQLITE=true in .env for local SQLite testing."
-    )
-
-
-def _init_mysql(mysql_conn):
     schema_path = os.path.join(Config.BASE_DIR, 'database', 'schema.sql')
-    with open(schema_path, 'r', encoding='utf-8') as f:
-        sql_script = f.read()
+    with open(schema_path, 'r', encoding='utf-8') as fh:
+        sql_script = fh.read()
 
-    statements = [stmt.strip() for stmt in sql_script.split(';') if stmt.strip()]
-    with mysql_conn.cursor() as cursor:
-        for stmt in statements:
-            if stmt.upper().startswith(('CREATE DATABASE', 'USE')):
-                continue
-            try:
-                cursor.execute(stmt)
-            except Exception as err:
-                # Ignore "already exists" type errors during idempotent init
-                print(f"[MySQL Init Warning]: {err}")
-    mysql_conn.commit()
-    mysql_conn.close()
-    print("[VibeVault DB] Connected and initialized MySQL database: 'vibe_vault' successfully!")
-
-
-def _init_sqlite():
-    print("[VibeVault DB] SQLite mode enabled (USE_SQLITE=true). Initializing local DB...")
-    conn = get_sqlite_connection()
-    conn.executescript("""
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        full_name TEXT NOT NULL,
-        username TEXT NOT NULL UNIQUE,
-        email TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL,
-        profile_image TEXT DEFAULT 'default_avatar.png',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS songs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        artist TEXT DEFAULT 'Unknown Artist',
-        album TEXT DEFAULT 'Single',
-        genre TEXT DEFAULT 'Various',
-        audio_file TEXT NOT NULL,
-        cover_image TEXT DEFAULT 'default_cover.png',
-        duration INTEGER DEFAULT 0,
-        upload_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-        play_count INTEGER DEFAULT 0,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS playlists (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        description TEXT,
-        cover_image TEXT DEFAULT 'default_playlist.png',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS playlist_songs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        playlist_id INTEGER NOT NULL,
-        song_id INTEGER NOT NULL,
-        position INTEGER DEFAULT 0,
-        added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
-        FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE,
-        UNIQUE(playlist_id, song_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS favorites (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        song_id INTEGER NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE,
-        UNIQUE(user_id, song_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS recently_played (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        song_id INTEGER NOT NULL,
-        played_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
-    );
-    """)
-    conn.commit()
-    conn.close()
-    print("[VibeVault DB] SQLite database initialized successfully!")
-
+    conn = get_pg_connection()
+    try:
+        with conn.cursor() as cur:
+            # Split on semicolons, skip blank/comment-only chunks
+            statements = [s.strip() for s in sql_script.split(';') if s.strip()]
+            for stmt in statements:
+                # Skip pure comment lines
+                if re.match(r'^--', stmt):
+                    continue
+                try:
+                    cur.execute(stmt)
+                except Exception as err:
+                    # Log but continue — usually harmless "already exists" on
+                    # indexes that psycopg2 surfaces as an error even with
+                    # IF NOT EXISTS in some edge cases.
+                    print(f"[DB Init Notice]: {err}")
+                    conn.rollback()
+                    # Re-open cursor after rollback
+                    cur = conn.cursor()
+        conn.commit()
+        print("[VibeVault DB] PostgreSQL database initialized successfully!")
+    except Exception as exc:
+        conn.rollback()
+        raise RuntimeError(f"[VibeVault DB] Schema initialization failed: {exc}") from exc
+    finally:
+        conn.close()
