@@ -45,6 +45,15 @@ class Config:
     ALLOWED_AUDIO_MIMES = {'audio/', 'video/'}  # m4a reports as video/mp4 in some libs
     ALLOWED_IMAGE_MIMES = {'image/'}
 
+    # Storage Backend Configuration: 'local' (default) or 's3'
+    STORAGE_BACKEND = os.getenv('STORAGE_BACKEND', 'local').lower()
+    S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', '')
+    S3_ENDPOINT_URL = os.getenv('S3_ENDPOINT_URL', None)
+    S3_ACCESS_KEY_ID = os.getenv('S3_ACCESS_KEY_ID', '')
+    S3_SECRET_ACCESS_KEY = os.getenv('S3_SECRET_ACCESS_KEY', '')
+    S3_REGION = os.getenv('S3_REGION', 'us-east-1')
+
+
     # Session configuration
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'

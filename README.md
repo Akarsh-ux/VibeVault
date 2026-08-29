@@ -1,8 +1,8 @@
-# 🎵 Vibe Vault — Personal Music Library Web Application
+# 🎵 Vibe Vault — Modern Music Streaming & Library Web Application
 
 > **"Your music. Your library. Your vibe."**
 
-Vibe Vault is a modern, responsive full-stack web application designed for personal music library and playlist management. Users can securely upload their audio files, organize tracks into custom playlists, heart their favorite songs, review listening history, and stream high-fidelity audio through an advanced persistent bottom audio player.
+Vibe Vault is a modern, responsive full-stack music streaming and playlist management application built with Flask, MySQL, and a clean **White & Blue Gradient Design System**. Users can upload high-resolution audio files, organize tracks into custom playlists, heart favorite songs, review listening timelines, and stream high-fidelity audio through an uninterrupted persistent HTML5 audio player.
 
 ---
 
@@ -12,16 +12,17 @@ Vibe Vault is a modern, responsive full-stack web application designed for perso
   - Secure registration and login with Werkzeug PBKDF2:SHA256 password hashing.
   - Session-based authentication with "Remember Me" support.
   - Strict user data isolation (users can only access, view, and modify their own library).
-  - File upload sanitization, format checks, and secure UUID filename generation.
+  - File upload sanitization, format validation, and secure UUID filename generation.
 - 🎵 **Music Upload & Management**:
   - Drag-and-drop audio uploading supporting **MP3, WAV, OGG, M4A** (up to 60MB).
   - Automatic duration detection via server-side `mutagen` and client-side HTML5 Audio API.
   - Custom song titles, artist, album, and genre tag metadata.
   - Custom album artwork preview and upload.
   - Search, filter by genre, and sort by recently added, title, artist, or most played.
-- ⚡ **Persistent HTML5 Audio Player**:
-  - Fixed bottom audio player with frosted glass backdrop.
-  - Real-time seek bar scrubber, buffered progress, and current/total duration indicators (`mm:ss`).
+- ⚡ **Persistent SPA Audio Player**:
+  - Uninterrupted playback across all module transitions (`Dashboard`, `My Music`, `Playlists`, `Favorites`, `Recently Played`, `Profile`).
+  - Fixed bottom audio player with glassmorphism backdrop.
+  - Real-time seek bar scrubber, buffered progress, and duration indicators (`mm:ss`).
   - Shuffle, Repeat (Off, Repeat All, Repeat One), and Volume/Mute controls.
   - Animated soundwave equalizer for active playing tracks.
   - Auto-play logging: automatically increments play count and logs history after 5 seconds of active playback.
@@ -35,98 +36,90 @@ Vibe Vault is a modern, responsive full-stack web application designed for perso
   - Dedicated Favorites library and Recently Played history with relative timestamps.
 - 🔍 **Dynamic Global Search**:
   - Real-time autocomplete search across songs, artists, albums, genres, and playlists.
-- 🎨 **White & Red Gradient Aesthetic**:
-  - Modern, responsive dark studio theme with vibrant white-to-red gradients, glassmorphism cards, and fluid mobile drawer navigation.
+- 🎨 **White & Blue Gradient Design System**:
+  - Polished interface using curated white and royal/deep blue gradients, glassmorphism cards, and fluid mobile drawer navigation.
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: HTML5, CSS3 (Vanilla CSS with White & Red Gradient Glassmorphism), JavaScript (ES6+ AJAX/Fetch), Bootstrap 5, Font Awesome 6
-- **Backend**: Python 3.13, Flask 3.1, Werkzeug, PyMySQL, Mutagen
+- **Frontend**: HTML5, CSS3 (Vanilla CSS with White & Blue Gradient Glassmorphism), JavaScript (ES6+ SPA Router & AJAX), Bootstrap 5, Font Awesome 6
+- **Backend**: Python 3.13, Flask 3.1, Werkzeug, PyMySQL, Mutagen, Gunicorn
 - **Database**: MySQL (`vibe_vault`) with automatic schema setup & SQLite fallback support
-- **Architecture**: RESTful JSON APIs & Jinja2 Template Engine
+- **Architecture**: RESTful JSON APIs, Jinja2 Template Engine, Decoupled Storage Adapter (Local / S3)
 
 ---
 
-## 📂 Project Structure
+## 🚀 Production Deployment
 
+### 1. Production Entrypoint & WSGI Server
+
+Vibe Vault uses the standard WSGI application factory pattern. The application instance is instantiated at module level in `app.py`:
+
+```python
+app = create_app()
 ```
-VibeVault/
-│
-├── app.py                     # Flask application entrypoint & error handlers
-├── config.py                  # Environment config and upload parameters
-├── requirements.txt           # Python package dependencies
-├── .env                       # Database credentials and secret key
-├── .env.example               # Template environment configuration
-├── .gitignore                 # Git ignore configuration
-├── seed_data.py               # Demo audio generator & seed script
-├── generate_assets.py         # SVG & PNG asset generator
-│
-├── database/
-│   ├── schema.sql             # MySQL schema definitions
-│   └── db.py                  # Database connection abstraction & query helpers
-│
-├── routes/
-│   ├── __init__.py
-│   ├── auth.py                # Auth routes & REST APIs (/login, /register, /logout)
-│   ├── main.py                # Landing page & dashboard with dynamic statistics
-│   ├── songs.py               # Song upload, list, edit, delete, and REST APIs
-│   ├── playlists.py           # Playlist CRUD, track reorder, and REST APIs
-│   ├── favorites.py           # Favorite toggle and collection APIs
-│   ├── recently_played.py     # Play history and play count tracking APIs
-│   ├── search.py              # Global search endpoint across all models
-│   └── users.py               # User profile info, avatar update, password reset
-│
-├── templates/
-│   ├── base.html              # Core layout (sidebar, header, bottom player, modals)
-│   ├── index.html             # Landing page
-│   ├── login.html             # Login page
-│   ├── register.html          # Registration page
-│   ├── dashboard.html         # User dashboard with stats & quick play
-│   ├── music.html             # My Music library with live search & filters
-│   ├── upload.html            # Audio upload form with live metadata preview
-│   ├── playlists.html         # Playlists grid overview
-│   ├── playlist.html          # Single playlist detail & track reordering
-│   ├── favorites.html         # Favorites collection
-│   ├── recently_played.html   # Listening timeline & play history
-│   └── profile.html           # User profile & account security
-│
-├── static/
-│   ├── css/
-│   │   └── style.css          # White & Red gradient glassmorphic stylesheet
-│   ├── js/
-│   │   ├── app.js             # Core UI, toasts, global search, and modals
-│   │   ├── player.js          # Persistent HTML5 audio player engine
-│   │   ├── songs.js           # Song management, filtering, and duration detection
-│   │   └── playlists.js       # Playlist management & reordering
-│   └── images/
-│       ├── logo.svg           # Vibe Vault glowing brand logo
-│       ├── default_cover.png  # Default song cover art
-│       ├── default_playlist.png # Default playlist cover art
-│       └── default_avatar.png # Default profile picture
-│
-├── uploads/
-│   ├── songs/                 # User audio files (.mp3, .wav, .ogg, .m4a)
-│   ├── covers/                # Custom song & playlist covers
-│   └── profiles/              # User profile pictures
-│
-└── tests/
-    ├── __init__.py
-    └── test_app.py            # Automated test suite (9 test cases)
+
+When deploying to production, point your WSGI server (such as Gunicorn) to `app:app`:
+
+```bash
+# Procfile command:
+web: gunicorn app:app
 ```
+
+### 2. Environment Variables Checklist
+
+Set the following environment variables in your hosting provider's dashboard (e.g. Railway, Render, Fly.io, AWS, Heroku):
+
+| Variable | Recommended Production Value | Description |
+|---|---|---|
+| `SECRET_KEY` | *(Generate 32-byte hex key)* | Flask session signing key. Generate via `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `DB_HOST` | `your-managed-db-host` | MySQL database host |
+| `DB_PORT` | `3306` | MySQL database port |
+| `DB_USER` | `your-db-username` | MySQL database username |
+| `DB_PASSWORD` | `your-db-password` | MySQL database password |
+| `DB_NAME` | `vibe_vault` | MySQL database name |
+| `SESSION_COOKIE_SECURE` | `true` | Enforces HTTPS-only cookies in production |
+| `PORT` | `5000` | Server binding port (auto-set by most PaaS hosts) |
+| `FLASK_DEBUG` | `0` | Disables debug mode in production |
+| `STORAGE_BACKEND` | `local` *(or `s3`)* | File storage adapter (`local` disk or `s3` bucket) |
 
 ---
 
-## 🗄️ Database Schema & Setup
+## 🗄️ Production Database Configuration
 
-### Database Tables:
-1. **`users`**: `id`, `full_name`, `username`, `email`, `password_hash`, `profile_image`, `created_at`
-2. **`songs`**: `id`, `user_id`, `title`, `artist`, `album`, `genre`, `audio_file`, `cover_image`, `duration`, `upload_date`, `play_count`
-3. **`playlists`**: `id`, `user_id`, `name`, `description`, `cover_image`, `created_at`
-4. **`playlist_songs`**: `id`, `playlist_id`, `song_id`, `position`, `added_at` (Unique: `[playlist_id, song_id]`)
-5. **`favorites`**: `id`, `user_id`, `song_id`, `created_at` (Unique: `[user_id, song_id]`)
-6. **`recently_played`**: `id`, `user_id`, `song_id`, `played_at`
+Vibe Vault is designed to run seamlessly on managed MySQL databases:
+- **Recommended Managed MySQL Providers**:
+  - [Railway MySQL](https://railway.app)
+  - [PlanetScale](https://planetscale.com)
+  - [AWS RDS MySQL](https://aws.amazon.com/rds/mysql/)
+  - [DigitalOcean Managed MySQL](https://www.digitalocean.com/products/managed-databases-mysql)
+  - [Aiven for MySQL](https://aiven.io/mysql)
+
+### Automatic Schema Initialization
+When the application starts, `init_db()` automatically runs `database/schema.sql` against the database to create all tables and indexes idempotently without manual database intervention.
+
+---
+
+## 💾 File Storage (Local Disk vs S3)
+
+User uploaded audio tracks (`uploads/songs/`), cover images (`uploads/covers/`), and profile avatars (`uploads/profiles/`) can be stored in two ways:
+
+### Option A: Persistent Volumes (Default: `STORAGE_BACKEND=local`)
+If hosting on a platform with persistent volume support, mount a persistent disk volume to the `/app/uploads` folder:
+- **Supported Hosts**: Railway Volumes, Fly.io Volumes, Render Persistent Disks, Docker Volumes.
+- **Note**: Ephemeral serverless platforms (e.g. Vercel, vanilla Heroku without volume plugins) reset local files on every deploy. Use Option B for ephemeral platforms.
+
+### Option B: S3-Compatible Object Storage (`STORAGE_BACKEND=s3`)
+Set `STORAGE_BACKEND=s3` and configure your S3 credentials (compatible with AWS S3, Cloudflare R2, Backblaze B2, MinIO):
+```env
+STORAGE_BACKEND=s3
+S3_BUCKET_NAME=your-bucket-name
+S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com
+S3_ACCESS_KEY_ID=your_access_key
+S3_SECRET_ACCESS_KEY=your_secret_key
+S3_REGION=us-east-1
+```
 
 ---
 
@@ -154,70 +147,30 @@ pip install -r requirements.txt
 ```
 
 ### 4. Configure Environment Variables (`.env`)
-Create or edit `.env` in the root directory:
-```env
-SECRET_KEY=9535170711
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=AkarshSanjay2007
-DB_NAME=vibe_vault
-FLASK_ENV=development
-FLASK_DEBUG=1
+Copy the template and fill in your values:
+```bash
+cp .env.example .env
 ```
 
 ### 5. Seed Demo Audio & Sample Tracks (Optional)
 ```bash
 python seed_data.py
 ```
-*Creates sample synthesized melodic tracks, cover artwork, and sets up `demo_user` with password `password123`.*
 
-### 6. Run the Application
+### 6. Run the Application Locally
 ```bash
 python app.py
 ```
-Open [http://127.0.0.1:5000](http://127.0.0.1:5000) in your web browser.
+Open [http://127.0.0.1:5000](http://127.0.0.1:5000) in your browser.
 
 ---
 
 ## 🧪 Automated Testing
 
-Run the automated test suite covering authentication, file uploads, playlist reordering, duplicate prevention, and user isolation:
-
+Run the automated test suite:
 ```bash
-python tests/test_app.py
+pytest tests/test_app.py
 ```
-
----
-
-## 🌐 REST API Reference
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/register` | Register new user account |
-| `POST` | `/api/login` | Authenticate user & start session |
-| `POST` | `/api/logout` | End session |
-| `GET` | `/api/songs` | List user songs (supports `?q=`, `?genre=`, `?sort=`) |
-| `POST` | `/api/songs` | Upload new audio track with metadata |
-| `GET` | `/api/songs/<id>` | Get single song details |
-| `PUT` | `/api/songs/<id>` | Update song title, artist, album, genre, cover |
-| `DELETE` | `/api/songs/<id>` | Delete song and audio file from storage |
-| `GET` | `/api/playlists` | List user playlists with song counts |
-| `POST` | `/api/playlists` | Create new playlist |
-| `GET` | `/api/playlists/<id>` | Get playlist details and ordered track list |
-| `PUT` | `/api/playlists/<id>` | Update playlist name and description |
-| `DELETE` | `/api/playlists/<id>` | Delete playlist |
-| `POST` | `/api/playlists/<id>/songs` | Add song to playlist (duplicate protected) |
-| `DELETE` | `/api/playlists/<id>/songs/<song_id>` | Remove song from playlist |
-| `PUT` | `/api/playlists/<id>/reorder` | Update song order positions |
-| `GET` | `/api/favorites` | List all favorited songs |
-| `POST` | `/api/favorites/toggle/<song_id>` | Toggle song favorite status |
-| `GET` | `/api/recently-played` | Get listening history |
-| `POST` | `/api/recently-played` | Log song playback & increment play count |
-| `GET` | `/api/search?q=<query>` | Global search across all models |
-| `GET` | `/api/profile` | Get profile information and listening stats |
-| `POST` | `/api/profile` | Update full name, username, or avatar |
-| `POST` | `/api/profile/password` | Change password with current password verification |
 
 ---
 
