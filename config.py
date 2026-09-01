@@ -4,7 +4,7 @@ from datetime import timedelta
 from dotenv import load_dotenv
 
 # Load environment variables from .env file (no-op in production where vars
-# are injected directly by the platform, e.g. Render)
+# are injected directly by the platform, e.g. Render, Railway, Heroku)
 load_dotenv()
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -26,22 +26,21 @@ class Config:
         )
 
     # ----------------------------------------------------------------
-    # Database — PostgreSQL
+    # Database — MySQL
     #
-    # Production (Render, Railway, Heroku, etc.):
-    #   Set the DATABASE_URL environment variable.  Render injects this
-    #   automatically when you attach a PostgreSQL database.
+    # Production (Railway, Render, PlanetScale, AWS RDS, Heroku, etc.):
+    #   Set DATABASE_URL or MYSQL_URL environment variable.
+    #   Format: mysql://username:password@hostname:3306/dbname
     #
     # Local development:
-    #   Either set DATABASE_URL in your .env, or set the individual
-    #   DB_* variables below — db.py will assemble them into a URL.
+    #   Set DATABASE_URL or the individual DB_* variables below.
     # ----------------------------------------------------------------
-    DATABASE_URL = os.getenv('DATABASE_URL', '')
+    DATABASE_URL = os.getenv('DATABASE_URL') or os.getenv('MYSQL_URL') or ''
 
     # Individual vars used by db.py when DATABASE_URL is absent
     DB_HOST     = os.getenv('DB_HOST', 'localhost')
-    DB_PORT     = int(os.getenv('DB_PORT', 5432))
-    DB_USER     = os.getenv('DB_USER', 'postgres')
+    DB_PORT     = int(os.getenv('DB_PORT', 3306))
+    DB_USER     = os.getenv('DB_USER', 'root')
     DB_PASSWORD = os.getenv('DB_PASSWORD', '')
     DB_NAME     = os.getenv('DB_NAME', 'vibe_vault')
 
@@ -66,11 +65,10 @@ class Config:
     # ----------------------------------------------------------------
     # Storage backend: 'local' (default) or 's3'
     #
-    # IMPORTANT for Render:
-    #   Render's filesystem is EPHEMERAL — files saved to 'uploads/'
-    #   are lost on every deploy or restart.  For persistent music
-    #   and image storage, set STORAGE_BACKEND=s3 and configure the
-    #   S3_* variables below (Cloudflare R2 or AWS S3 recommended).
+    # IMPORTANT for ephemeral clouds (e.g. Render/Heroku without volumes):
+    #   Files saved to 'uploads/' on ephemeral platforms are lost on restarts.
+    #   For persistent music and image storage, set STORAGE_BACKEND=s3 and
+    #   configure the S3_* variables below (Cloudflare R2 or AWS S3).
     # ----------------------------------------------------------------
     STORAGE_BACKEND      = os.getenv('STORAGE_BACKEND', 'local').lower()
     S3_BUCKET_NAME       = os.getenv('S3_BUCKET_NAME', '')

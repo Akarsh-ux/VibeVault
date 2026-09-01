@@ -2,7 +2,7 @@
 
 > **"Your music. Your library. Your vibe."**
 
-Vibe Vault is a modern, responsive full-stack music streaming and playlist management application built with Flask, MySQL, and a clean **White & Blue Gradient Design System**. Users can upload high-resolution audio files, organize tracks into custom playlists, heart favorite songs, review listening timelines, and stream high-fidelity audio through an uninterrupted persistent HTML5 audio player.
+Vibe Vault is a full-stack, production-ready music streaming and playlist management application built with Flask, **MySQL (PyMySQL)**, and a clean **White & Blue Gradient Design System**. Users can upload high-resolution audio files, organize tracks into custom playlists, heart favorite songs, review listening timelines, and stream high-fidelity audio through an uninterrupted persistent HTML5 audio player.
 
 ---
 
@@ -45,7 +45,7 @@ Vibe Vault is a modern, responsive full-stack music streaming and playlist manag
 
 - **Frontend**: HTML5, CSS3 (Vanilla CSS with White & Blue Gradient Glassmorphism), JavaScript (ES6+ SPA Router & AJAX), Bootstrap 5, Font Awesome 6
 - **Backend**: Python 3.13, Flask 3.1, Werkzeug, PyMySQL, Mutagen, Gunicorn
-- **Database**: MySQL (`vibe_vault`) with automatic schema setup & SQLite fallback support
+- **Database**: MySQL 8.0 / MariaDB with automatic schema initialization (`database/schema.sql`)
 - **Architecture**: RESTful JSON APIs, Jinja2 Template Engine, Decoupled Storage Adapter (Local / S3)
 
 ---
@@ -64,7 +64,7 @@ When deploying to production, point your WSGI server (such as Gunicorn) to `app:
 
 ```bash
 # Procfile command:
-web: gunicorn app:app
+web: gunicorn --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120 app:app
 ```
 
 ### 2. Environment Variables Checklist
@@ -74,7 +74,8 @@ Set the following environment variables in your hosting provider's dashboard (e.
 | Variable | Recommended Production Value | Description |
 |---|---|---|
 | `SECRET_KEY` | *(Generate 32-byte hex key)* | Flask session signing key. Generate via `python -c "import secrets; print(secrets.token_hex(32))"` |
-| `DB_HOST` | `your-managed-db-host` | MySQL database host |
+| `DATABASE_URL` | `mysql://user:pass@host:3306/vibe_vault` | Single connection URL for MySQL (used by Railway, Render, Heroku) |
+| `DB_HOST` | `your-managed-db-host` | MySQL database host (fallback if DATABASE_URL not set) |
 | `DB_PORT` | `3306` | MySQL database port |
 | `DB_USER` | `your-db-username` | MySQL database username |
 | `DB_PASSWORD` | `your-db-password` | MySQL database password |
@@ -86,7 +87,7 @@ Set the following environment variables in your hosting provider's dashboard (e.
 
 ---
 
-## 🗄️ Production Database Configuration
+## 🗄️ Database Configuration (MySQL)
 
 Vibe Vault is designed to run seamlessly on managed MySQL databases:
 - **Recommended Managed MySQL Providers**:
@@ -98,6 +99,18 @@ Vibe Vault is designed to run seamlessly on managed MySQL databases:
 
 ### Automatic Schema Initialization
 When the application starts, `init_db()` automatically runs `database/schema.sql` against the database to create all tables and indexes idempotently without manual database intervention.
+
+---
+
+## 🐳 Deploy with Docker & Docker Compose
+
+To run VibeVault and MySQL 8 together in containers:
+
+```bash
+docker compose up -d --build
+```
+
+Access the app at `http://localhost:5000`.
 
 ---
 
